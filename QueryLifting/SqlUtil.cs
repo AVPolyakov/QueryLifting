@@ -63,6 +63,16 @@ namespace QueryLifting
             }
         }
 
+        public static int Execute(this NonQuery query)
+        {
+            using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, ConnectionStringFunc)))
+            {
+                query.Command.Connection = connection;
+                connection.Open();
+                return query.Command.ExecuteNonQuery();
+            }
+        }
+
         public static Option<int> GetOptionInt32(this SqlDataReader reader, int ordinal)
         {
             return reader.IsDBNull(ordinal) ? new Option<int>() : reader.GetInt32(ordinal);
@@ -202,6 +212,18 @@ namespace QueryLifting
             return command.Parameters.AddWithValue(parameterName, value);
         }
 
+        public static SqlParameter AddParam(this SqlCommand command, string parameterName, decimal? value)
+        {
+            return value.HasValue
+                ? command.AddParam(parameterName, value.Value)
+                : command.Parameters.Add(new SqlParameter(parameterName, SqlDbType.Decimal) {Value = DBNull.Value});
+        }
+
+        public static SqlParameter AddParam(this SqlCommand command, string parameterName, decimal value)
+        {
+            return command.Parameters.AddWithValue(parameterName, value);
+        }
+
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, DateTime? value)
         {
             return value.HasValue
@@ -232,6 +254,8 @@ namespace QueryLifting
         public static Dictionary<Type, MethodInfo> AddParamsMethods = new[] {
             GetMethodInfo<Func<SqlCommand, string, int, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, int?, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
+            GetMethodInfo<Func<SqlCommand, string, decimal, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
+            GetMethodInfo<Func<SqlCommand, string, decimal?, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, DateTime, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, DateTime?, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, string, SqlParameter>>((command, name, value) => command.AddParam(name, value)),

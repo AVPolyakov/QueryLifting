@@ -34,6 +34,8 @@ namespace Foo.Tests
         {
             var type = parameterInfo.ParameterType;
             if (type == typeof (string)) return new[] {"test"};
+            if (type == typeof (int)) return new[] {0}.Select<int, object>(_ => _);
+            if (type == typeof (decimal)) return new[] {0m}.Select<decimal, object>(_ => _);;
             if (type == typeof (DateTime)) return new[] {new DateTime(2001, 1, 1)}.Select<DateTime, object>(_ => _);
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Nullable<>))
                 return new[] {
