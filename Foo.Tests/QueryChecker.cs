@@ -12,7 +12,7 @@ namespace Foo.Tests
     {
         public void Query<T>(Query<T> query)
         {
-            using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, () => Program.ConnectionString)))
+            using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, SqlUtil.ConnectionStringFunc)))
             {
                 query.Command.Connection = connection;
                 connection.Open();
@@ -89,7 +89,7 @@ namespace Foo.Tests
 
         public void NonQuery(NonQuery query)
         {
-            using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, () => Program.ConnectionString)))
+            using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, SqlUtil.ConnectionStringFunc)))
                 if (query.Command.CommandType == CommandType.StoredProcedure)
                 {
                     var command = new SqlCommand(query.Command.CommandText, connection) { CommandType = CommandType.StoredProcedure };

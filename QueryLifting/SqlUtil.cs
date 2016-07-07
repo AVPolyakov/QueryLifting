@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
@@ -18,6 +19,11 @@ namespace QueryLifting
             return new Query<T>(command, readerFunc, connectionString);
         }
 
+        public static Query<IEnumerable<T>> Query<T>(this SqlCommand command, Option<string> connectionString = new Option<string>())
+        {
+            return command.Query(Read<T>, connectionString);
+        }
+
         public static NonQuery NonQuery(this SqlCommand command, Option<string> connectionString = new Option<string>())
         {
             return new NonQuery(command, connectionString);
@@ -25,7 +31,7 @@ namespace QueryLifting
 
         public static IEnumerable<T> Read<T>(this SqlCommand command, Option<string> connectionString = new Option<string>())
         {
-            return command.Query(Read<T>, connectionString).Read();
+            return command.Query<T>(connectionString).Read();
         }
 
         public static IEnumerable<T> Read<T>(this SqlDataReader reader)
@@ -124,7 +130,7 @@ namespace QueryLifting
                     var ilGenerator = dynamicMethod.GetILGenerator();
                     ilGenerator.Emit(OpCodes.Ldarg_0);
                     ilGenerator.Emit(OpCodes.Ldc_I4_0);
-                    ilGenerator.EmitCall(OpCodes.Call, methodInfo, null);
+                    ilGenerator.EmitCall(methodInfo.IsVirtual ? OpCodes.Callvirt : OpCodes.Call, methodInfo, null);
                     ilGenerator.Emit(OpCodes.Ret);
                     dynamicMethod.DefineParameter(1, ParameterAttributes.In, "arg1");
                     var @delegate = (Func<SqlDataReader, T>) dynamicMethod.CreateDelegate(typeof (Func<SqlDataReader, T>));
@@ -168,7 +174,7 @@ namespace QueryLifting
                         ilGenerator.Emit(OpCodes.Ldloc_0);
                         ilGenerator.Emit(OpCodes.Ldarg_0);
                         ilGenerator.Emit(OpCodes.Ldstr, fieldInfo.Name);
-                        ilGenerator.EmitCall(OpCodes.Callvirt, GetMethodInfo<Func<SqlDataReader , string, int>>((reader, name) => reader.GetOrdinal(name)), null);
+                        ilGenerator.EmitCall(OpCodes.Callvirt, GetMethodInfo<Func<SqlDataReader, string, int>>((reader, name) => reader.GetOrdinal(name)), null);
                         ilGenerator.Emit(OpCodes.Stfld, fieldInfo);
                     }
                     ilGenerator.Emit(OpCodes.Ldloc_0);
@@ -312,6 +318,93 @@ namespace QueryLifting
                 default:
                     throw new ApplicationException();
             }
+        }
+
+        public static Query<IEnumerable<int>> InsertQuery<T>(string table, T p, Option<string> connectionString = new Option<string>())
+        {
+            var command = new SqlCommand();
+            var columns = GetColumns(table, connectionString);
+            var columnsClause = string.Join(",", from _ in columns where !_.IsAutoIncrement select _.ColumnName);
+            var outClause = columns.Single(_ => _.IsKey).ColumnName;
+            var valuesClause = string.Join(",", from _ in columns where !_.IsAutoIncrement select $"@{_.ColumnName}");
+            command.CommandText = new StringBuilder().Append(command, $@"
+INSERT INTO {table} ({columnsClause}) 
+OUTPUT inserted.{outClause}
+VALUES ({valuesClause})", p).ToString();
+            return command.Query<int>();
+        }
+
+        public static NonQuery UpdateQuery<T>(string table, T p, Option<string> connectionString = new Option<string>())
+        {
+            var command = new SqlCommand();
+            var columns = GetColumns(table, connectionString);
+            var setClause = string.Join(",", from _ in columns where !_.IsKey select $"{_.ColumnName}=@{_.ColumnName}");
+            var whereClause = string.Join(" AND ", from _ in columns where _.IsKey select $"{_.ColumnName}=@{_.ColumnName}");
+            command.CommandText = new StringBuilder().Append(command, $@"
+UPDATE {table}
+SET {setClause}
+WHERE {whereClause}", p).ToString();
+            return command.NonQuery();
+        }
+
+        public static NonQuery DeleteQuery<T>(string table, T p, Option<string> connectionString = new Option<string>())
+        {
+            var command = new SqlCommand();
+            var columns = GetColumns(table, connectionString);
+            var whereClause = string.Join(" AND ", from _ in columns where _.IsKey select $"{_.ColumnName}=@{_.ColumnName}");
+            command.CommandText = new StringBuilder().Append(command, $@"
+DELETE FROM {table}
+WHERE {whereClause}", p).ToString();
+            return command.NonQuery();
+        }
+
+        private static List<ColumnInfo> GetColumns(string table, Option<string> connectionString)
+        {
+            List<ColumnInfo> value;
+            if (!columnDictionary.TryGetValue(table, out value))
+            {
+                value = GetColumnEnumerable(table, connectionString).ToList();
+                columnDictionary[table] = value;
+            }
+            return value;
+        }
+
+        private static readonly ConcurrentDictionary<string, List<ColumnInfo>> columnDictionary =
+            new ConcurrentDictionary<string, List<ColumnInfo>>();
+
+        private static IEnumerable<ColumnInfo> GetColumnEnumerable(string table, Option<string> connectionString)
+        {
+            using (var connection = new SqlConnection(connectionString.Match(_ => _, ConnectionStringFunc)))
+            {
+                connection.Open();
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText = "SELECT * FROM " + table;
+                    using (var reader = command.ExecuteReader(CommandBehavior.SchemaOnly | CommandBehavior.KeyInfo))
+                    {
+                        var schemaTable = reader.GetSchemaTable();
+                        foreach (DataRow dataRow in schemaTable.Rows)
+                            yield return new ColumnInfo(
+                                (string)dataRow["ColumnName"],
+                                true.Equals(dataRow["IsKey"]),
+                                true.Equals(dataRow["IsAutoIncrement"]));
+                    }
+                }
+            }
+        }
+    }
+
+    internal class ColumnInfo
+    {
+        public string ColumnName { get; }
+        public bool IsKey { get; }
+        public bool IsAutoIncrement { get; }
+
+        public ColumnInfo(string columnName, bool isKey, bool isAutoIncrement)
+        {
+            ColumnName = columnName;
+            IsKey = isKey;
+            IsAutoIncrement = isAutoIncrement;
         }
     }
 }
