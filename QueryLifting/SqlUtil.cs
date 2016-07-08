@@ -361,6 +361,7 @@ WHERE {whereClause}", p).ToString();
         private static List<ColumnInfo> GetColumns(string table, Option<string> connectionString)
         {
             List<ColumnInfo> value;
+            //TODO: add connection string to key
             if (!columnDictionary.TryGetValue(table, out value))
             {
                 value = GetColumnEnumerable(table, connectionString).ToList();
@@ -379,7 +380,7 @@ WHERE {whereClause}", p).ToString();
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = "SELECT * FROM " + table;
+                    command.CommandText = $"SELECT * FROM {table}";
                     using (var reader = command.ExecuteReader(CommandBehavior.SchemaOnly | CommandBehavior.KeyInfo))
                     {
                         var schemaTable = reader.GetSchemaTable();

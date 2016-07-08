@@ -14,13 +14,13 @@ namespace Foo
         {
             ConnectionStringFunc = () => ConnectionString;
 
+            M1(new DateTime(2015, 1, 1));
             M2();
-            M1();
         }
 
-        private static void M1()
+        private static void M1(DateTime? date)
         {
-            foreach (var record in new {date = (DateTime?) new DateTime(2015, 1, 1)}.Apply(p => {
+            foreach (var record in new {date}.Apply(p => {
                 var command = new SqlCommand();
                 var builder = new StringBuilder(@"
 SELECT PostId, Text,  CreationDate
