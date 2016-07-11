@@ -84,6 +84,16 @@ namespace QueryLifting
             return reader.IsDBNull(ordinal) ? new Option<int>() : reader.GetInt32(ordinal);
         }
 
+        public static Option<decimal> GetOptionDecimal(this SqlDataReader reader, int ordinal)
+        {
+            return reader.IsDBNull(ordinal) ? new Option<decimal>() : reader.GetDecimal(ordinal);
+        }
+
+        public static Option<Guid> GetOptionGuid(this SqlDataReader reader, int ordinal)
+        {
+            return reader.IsDBNull(ordinal) ? new Option<Guid>() : reader.GetGuid(ordinal);
+        }
+
         public static Option<DateTime> GetOptionDateTime(this SqlDataReader reader, int ordinal)
         {
             return reader.IsDBNull(ordinal) ? new Option<DateTime>() : reader.GetDateTime(ordinal);
@@ -107,6 +117,10 @@ namespace QueryLifting
         public static readonly Dictionary<Type, MethodInfo> MethodInfos = new[] {
             GetMethodInfo<Func<SqlDataReader, int, int>>(((reader, i) => reader.GetInt32(i))),
             GetMethodInfo<Func<SqlDataReader, int, Option<int>>>(((reader, i) => reader.GetOptionInt32(i))),
+            GetMethodInfo<Func<SqlDataReader, int, decimal>>(((reader, i) => reader.GetDecimal(i))),
+            GetMethodInfo<Func<SqlDataReader, int, Option<decimal>>>(((reader, i) => reader.GetOptionDecimal(i))),
+            GetMethodInfo<Func<SqlDataReader, int, Guid>>(((reader, i) => reader.GetGuid(i))),
+            GetMethodInfo<Func<SqlDataReader, int, Option<Guid>>>(((reader, i) => reader.GetOptionGuid(i))),
             GetMethodInfo<Func<SqlDataReader, int, DateTime>>(((reader, i) => reader.GetDateTime(i))),
             GetMethodInfo<Func<SqlDataReader, int, Option<DateTime>>>(((reader, i) => reader.GetOptionDateTime(i))),
             GetMethodInfo<Func<SqlDataReader, int, string>>(((reader, i) => reader.GetString(i))),
@@ -225,6 +239,18 @@ namespace QueryLifting
                 : command.Parameters.Add(new SqlParameter(parameterName, SqlDbType.Decimal) {Value = DBNull.Value});
         }
 
+        public static SqlParameter AddParam(this SqlCommand command, string parameterName, Guid value)
+        {
+            return command.Parameters.AddWithValue(parameterName, value);
+        }
+
+        public static SqlParameter AddParam(this SqlCommand command, string parameterName, Guid? value)
+        {
+            return value.HasValue
+                ? command.AddParam(parameterName, value.Value)
+                : command.Parameters.Add(new SqlParameter(parameterName, SqlDbType.UniqueIdentifier) {Value = DBNull.Value});
+        }
+
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, decimal value)
         {
             return command.Parameters.AddWithValue(parameterName, value);
@@ -262,6 +288,8 @@ namespace QueryLifting
             GetMethodInfo<Func<SqlCommand, string, int?, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, decimal, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, decimal?, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
+            GetMethodInfo<Func<SqlCommand, string, Guid, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
+            GetMethodInfo<Func<SqlCommand, string, Guid?, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, DateTime, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, DateTime?, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, string, SqlParameter>>((command, name, value) => command.AddParam(name, value)),

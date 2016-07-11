@@ -30,8 +30,8 @@ namespace QueryLifting
             using (var provider = new CSharpCodeProvider())
             {
                 var output = provider.GetTypeOutput(new CodeTypeReference(type));
-                var lastIndexOf = output.LastIndexOf('.');
-                return lastIndexOf < 0 ? output : output.Substring(lastIndexOf + 1);
+                var ns = $"{type.Namespace}.";
+                return output.StartsWith(ns) ? output.Substring(ns.Length) : output;
             }
         }
     }
