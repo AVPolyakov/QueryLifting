@@ -80,8 +80,8 @@ namespace Foo.Tests
         private static readonly MethodInfo queryMethod2 = SqlUtil.GetMethodInfo<Func<SqlCommand, string, Func<SqlDataReader, object>, Query<IEnumerable<object>>>>(
             (command, connectionString, func) => command.Query<object>(connectionString)).GetGenericMethodDefinition();
 
-        private static readonly MethodInfo insertQueryMethod = SqlUtil.GetMethodInfo<Func<string, object, Option<string>, Query<IEnumerable<int>>>>(
-            (table, p, connectionString) => SqlUtil.InsertQuery(table, p, connectionString)).GetGenericMethodDefinition();
+        private static readonly MethodInfo insertQueryMethod = SqlUtil.GetMethodInfo<Func<object, string, object, Option<string>, Query<IEnumerable<object>>>>(
+            (prototype, table, p, connectionString) => SqlUtil.InsertQuery(prototype, table, p, connectionString)).GetGenericMethodDefinition();
 
         private static readonly MethodInfo updateQueryMethod = SqlUtil.GetMethodInfo<Func<string, object, Option<string>, NonQuery>>(
             (table, p, connectionString) => SqlUtil.UpdateQuery(table, p, connectionString)).GetGenericMethodDefinition();

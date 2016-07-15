@@ -39,7 +39,7 @@ WHERE 1 = 1");
         private static void M2()
         {
             var id = new {Text = "Test", CreationDate = DateTime.Now}.Apply(p =>
-                InsertQuery("Post", p)).Read().Single();
+                InsertQuery(default(int), "Post", p)).Read().Single();
             Console.WriteLine(id);
             Assert.AreEqual("Test",
                 new {id}.Apply(p => new SqlCommand("SELECT Text FROM Post WHERE PostId = @Id").AddParams(p)

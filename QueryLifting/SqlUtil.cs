@@ -348,7 +348,7 @@ namespace QueryLifting
             }
         }
 
-        public static Query<IEnumerable<int>> InsertQuery<T>(string table, T p, Option<string> connectionString = new Option<string>())
+        public static Query<IEnumerable<TKey>> InsertQuery<T, TKey>(TKey prototype, string table, T p, Option<string> connectionString = new Option<string>())
         {
             var command = new SqlCommand();
             var columns = GetColumns(table, connectionString);
@@ -359,7 +359,7 @@ namespace QueryLifting
 INSERT INTO {table} ({columnsClause}) 
 OUTPUT inserted.{outClause}
 VALUES ({valuesClause})", p).ToString();
-            return command.Query<int>();
+            return command.Query<TKey>();
         }
 
         public static NonQuery UpdateQuery<T>(string table, T p, Option<string> connectionString = new Option<string>())
