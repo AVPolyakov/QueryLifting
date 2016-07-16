@@ -25,11 +25,6 @@ namespace Foo.Tests
                     }.Contains(methodInfo.GetGenericMethodDefinition()) ||
                      methodInfo == nonQueryMethod))
                 {
-                    var currentMethod = usage.CurrentMethod as MethodInfo;
-                    if (currentMethod != null && currentMethod.IsGenericMethod
-                        && new[] {readMethod, queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod, deleteQueryMethod}
-                            .Contains(currentMethod.GetGenericMethodDefinition()))
-                        continue;
                     var invocation = usage.CurrentMethod.GetStaticInvocation();
                     if (!invocation.HasValue) throw new ApplicationException();
                     foreach (var combination in usage.CurrentMethod.GetParameters().GetAllCombinations(TestValues))
@@ -42,10 +37,10 @@ namespace Foo.Tests
         {
             var type = parameterInfo.ParameterType;
             if (type == typeof (string)) return new[] {"test"};
-            if (type == typeof (int)) return new[] {0}.Select<int, object>(_ => _);
-            if (type == typeof (decimal)) return new[] {0m}.Select<decimal, object>(_ => _);
-            if (type == typeof (Guid)) return new[] {default(Guid)}.Select<Guid, object>(_ => _);
-            if (type == typeof (DateTime)) return new[] {new DateTime(2001, 1, 1)}.Select<DateTime, object>(_ => _);
+            if (type == typeof (int)) return new object[] {0};
+            if (type == typeof (decimal)) return new object[] {0m};
+            if (type == typeof (Guid)) return new object[] {default(Guid)};
+            if (type == typeof (DateTime)) return new object[] {new DateTime(2001, 1, 1)};
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Nullable<>))
                 return new[] {
                     SqlUtil.GetMethodInfo<Func<int?>>(() => CreateNullable<int>()),

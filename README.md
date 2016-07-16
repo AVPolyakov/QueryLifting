@@ -10,7 +10,7 @@ all the methods where a method of
 [specified set](Foo.Tests/Tests.cs#L24)
 is invoked.
 Test values of parameters are specified in the method
-[TestValues](Foo.Tests/Tests.cs#L41).
+[TestValues](Foo.Tests/Tests.cs#L36).
 The test iterates through 
 [all combinations of test values](QueryLifting/EnumerableExtensions.cs#L9).
 The test [executes](Foo.Tests/QueryChecker.cs#L19)
