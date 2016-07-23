@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
@@ -16,6 +17,7 @@ namespace Foo
 
             M1(new DateTime(2015, 1, 1));
             M2();
+            M3(new DateTime(2015, 1, 1));
         }
 
         private static void M1(DateTime? date)
@@ -62,6 +64,25 @@ WHERE 1 = 1");
                     new {id}.Apply(p => new SqlCommand("SELECT Text FROM Post WHERE PostId = @Id").AddParams(p)
                         .Read<Option<string>>()).Count());
             }
+        }
+
+        private static void M3(DateTime? date)
+        {
+            foreach (var record in ReadPosts(date))
+                Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
+        }
+
+        public static IEnumerable<A001> ReadPosts(DateTime? date)
+        {
+            var command = new SqlCommand();
+            var builder = new StringBuilder(@"
+SELECT PostId, Text,  CreationDate
+FROM Post
+WHERE 1 = 1");
+            if (date.HasValue) builder.Append(command, @"
+    AND CreationDate > @date", new {date});
+            command.CommandText = builder.ToString();
+            return command.Read<A001>();
         }
 
         //Scripts for database are located in folder DatabaseScripts in project root.

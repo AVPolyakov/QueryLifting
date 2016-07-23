@@ -5,17 +5,23 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using QueryLifting;
+using static Foo.Program;
 
 namespace Foo.Tests
 {
     [TestClass]
-    public class Tests
+    public class QueryTests
     {
-        [TestMethod]
-        public void CheckQueries()
+        [TestInitialize]
+        public void OnStartup()
         {
-            SqlUtil.ConnectionStringFunc = () => Program.ConnectionString;
+            SqlUtil.ConnectionStringFunc = () => ConnectionString;
             SqlUtil.QueryChecker = new QueryChecker();
+        }
+
+        [TestMethod]
+        public void TestQueries()
+        {
             foreach (var usage in new[] {typeof(Program)}.SelectMany(_ => _.Assembly.GetTypes()).ResolveUsages())
             {
                 var methodInfo = usage.ResolveMember as MethodInfo;
@@ -86,5 +92,21 @@ namespace Foo.Tests
 
         private static readonly MethodInfo nonQueryMethod = SqlUtil.GetMethodInfo<Action<SqlCommand, string>>(
             (command, connectionString) => command.NonQuery(connectionString));
+
+        [TestMethod]
+        public void ExplicitTest()
+        {
+            TestQuery(typeof (Program), nameof(ReadPosts), parameterInfo => {
+                if (parameterInfo.Name == "date") return new object[] {new DateTime?(), new DateTime(2001, 1, 1),};
+                throw new ApplicationException();
+            });
+        }
+
+        private static void TestQuery(Type type, string methodName, Func<ParameterInfo, IEnumerable<object>> testValues)
+        {
+            var methodInfo = type.GetMethod(methodName);
+            foreach (var combination in methodInfo.GetParameters().GetAllCombinations(testValues))
+                methodInfo.Invoke(null, combination.ToArray());
+        }
     }
 }
