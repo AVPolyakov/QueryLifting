@@ -51,14 +51,22 @@ namespace Foo.Tests
                 return new[] {
                     SqlUtil.GetMethodInfo<Func<int?>>(() => CreateNullable<int>()),
                     SqlUtil.GetMethodInfo<Func<int, int?>>(_ => CreateNullable(_))
-                }.SelectMany(
-                    method => method.GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments())
-                        .GetParameters().GetAllCombinations(TestValues)
-                        .Select(args => method.GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments()).Invoke(null, args.ToArray())));
+                }.SelectMany(prototypeMethod => {
+                    var method = prototypeMethod.GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
+                    return method.GetParameters().GetAllCombinations(TestValues)
+                        .Select(args => method.Invoke(null, args.ToArray()));
+                });
             if (type.IsAnonymousType())
                 return type.GetConstructors(UsageResolver.AllBindingFlags)
                     .SelectMany(constructorInfo => constructorInfo.GetParameters().GetAllCombinations(TestValues)
                         .Select(args => constructorInfo.Invoke(args.ToArray())));
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Param<>))
+            {
+                var method = SqlUtil.GetMethodInfo<Func<object, Param<object>>>(_ => CreateParam(_))
+                    .GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
+                var args = method.GetParameters().Select(parameter => TestValues(parameter).First()).ToArray();
+                return new[] {method.Invoke(null, args)};
+            }
             throw new ApplicationException();
         }
 
@@ -70,6 +78,11 @@ namespace Foo.Tests
         private static T? CreateNullable<T>() where T : struct
         {
             return new T?();
+        }
+
+        private static Param<T> CreateParam<T>(T value)
+        {
+            return value.Param();
         }
 
         private static readonly MethodInfo readMethod = SqlUtil.GetMethodInfo<Func<SqlCommand, string, IEnumerable<object>>>(

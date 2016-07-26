@@ -13,3 +13,7 @@ INSERT INTO Post (Text, CreationDate)
   VALUES ('Test1', GETDATE());
 INSERT INTO Post (Text, CreationDate)
   VALUES (NULL, GETDATE());
+
+CREATE TABLE T001 (
+  C1 DATETIME
+);

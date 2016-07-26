@@ -11,15 +11,6 @@ namespace Foo
 {
     public class Program
     {
-        static void Main()
-        {
-            ConnectionStringFunc = () => ConnectionString;
-
-            M1(new DateTime(2015, 1, 1));
-            M2();
-            M3(new DateTime(2015, 1, 1));
-        }
-
         private static void M1(DateTime? date)
         {
             foreach (var record in new {date}.Apply(p => {
@@ -83,6 +74,22 @@ WHERE 1 = 1");
     AND CreationDate > @date", new {date});
             command.CommandText = builder.ToString();
             return command.Read<A001>();
+        }
+
+        private static void M4()
+        {
+            new {C1 = new DateTime?().Param()}.Apply(p =>
+                new SqlCommand("INSERT T001 (C1) VALUES (@C1)").AddParams(p).NonQuery());
+        }
+
+        static void Main()
+        {
+            ConnectionStringFunc = () => ConnectionString;
+
+            M1(new DateTime(2015, 1, 1));
+            M2();
+            M3(new DateTime(2015, 1, 1));
+            M4();
         }
 
         //Scripts for database are located in folder DatabaseScripts in project root.

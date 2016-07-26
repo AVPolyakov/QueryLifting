@@ -277,13 +277,40 @@ namespace QueryLifting
             return parameter;
         }
 
+        public static SqlParameter AddParam<T>(this SqlCommand command, string parameterName, Param<T> param)
+        {
+            return ParamCache<T>.Func(command, parameterName, param.Value);
+        }
+
+        private static class ParamCache<T>
+        {
+            public static readonly Func<SqlCommand, string, T, SqlParameter> Func;
+
+            static ParamCache()
+            {
+                var dynamicMethod = new DynamicMethod(Guid.NewGuid().ToString("N"), typeof (SqlParameter),
+                    new[] {typeof (SqlCommand), typeof (string), typeof (T)}, true);
+                var ilGenerator = dynamicMethod.GetILGenerator();
+                ilGenerator.Emit(OpCodes.Ldarg_0);
+                ilGenerator.Emit(OpCodes.Ldarg_1);
+                ilGenerator.Emit(OpCodes.Ldarg_2);
+                ilGenerator.EmitCall(OpCodes.Call, GetAddParamMethod(typeof (T)), null);
+                ilGenerator.Emit(OpCodes.Ret);
+                dynamicMethod.DefineParameter(1, ParameterAttributes.In, "command");
+                dynamicMethod.DefineParameter(2, ParameterAttributes.In, "parameterName");
+                dynamicMethod.DefineParameter(3, ParameterAttributes.In, "value");
+                Func = (Func<SqlCommand, string, T, SqlParameter>)
+                    dynamicMethod.CreateDelegate(typeof (Func<SqlCommand, string, T, SqlParameter>));
+            }
+        }
+
         public static SqlCommand AddParams<T>(this SqlCommand command, T param)
         {
             AddParamsCache<T>.Action(command, param);
             return command;
         }
 
-        public static Dictionary<Type, MethodInfo> AddParamsMethods = new[] {
+        private static readonly Dictionary<Type, MethodInfo> AddParamsMethods = new[] {
             GetMethodInfo<Func<SqlCommand, string, int, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, int?, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, decimal, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
@@ -311,16 +338,27 @@ namespace QueryLifting
                     ilGenerator.Emit(OpCodes.Ldstr, "@" + info.Name);
                     ilGenerator.Emit(OpCodes.Ldarg_1);
                     ilGenerator.EmitCall(OpCodes.Callvirt, info.GetGetMethod(), null);
-                    ilGenerator.EmitCall(OpCodes.Call, AddParamsMethods[info.PropertyType], null);
+                    ilGenerator.EmitCall(OpCodes.Call, GetAddParamMethod(info.PropertyType), null);
                     ilGenerator.Emit(OpCodes.Pop);
                 }
                 ilGenerator.Emit(OpCodes.Ret);
                 dynamicMethod.DefineParameter(1, ParameterAttributes.In, "command");
-                dynamicMethod.DefineParameter(1, ParameterAttributes.In, "p");
+                dynamicMethod.DefineParameter(2, ParameterAttributes.In, "p");
                 Action = (Action<SqlCommand, T>)
                     dynamicMethod.CreateDelegate(typeof (Action<SqlCommand, T>));
             }
         }
+
+        private static MethodInfo GetAddParamMethod(Type type)
+        {
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Param<>))
+                return paramMethod.MakeGenericMethod(type.GetGenericArguments());
+            else
+                return AddParamsMethods[type];
+        }
+
+        private static readonly MethodInfo paramMethod = GetMethodInfo<Func<SqlCommand, string, Param<object>, SqlParameter>>(
+                (command, name, value) => command.AddParam(name, value)).GetGenericMethodDefinition();
 
         public static StringBuilder Append<T>(this StringBuilder builder, SqlCommand command, string text, T param)
         {
