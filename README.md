@@ -2,7 +2,7 @@
 Query Lifting is a technique to test SQL queries that are expressed as simple strings.
 
 The [test](Foo.Tests/QueryTests.cs#L23) covers [code fragments](Foo/Program.cs#L26-L34) that contain queries 
-(highlighted by [dotCover](https://www.jetbrains.com/help/dotcover/10.0/Visualizing_Code_Coverage.html)):  
+(highlighted in green by [dotCover](https://www.jetbrains.com/help/dotcover/10.0/Visualizing_Code_Coverage.html)):  
 ![Code coverage](Images/CodeCoverage.png?raw=true "Code coverage")  
 The test
 [finds](QueryLifting/UsageResolver.cs#L14)
