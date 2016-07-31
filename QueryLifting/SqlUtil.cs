@@ -156,8 +156,7 @@ namespace QueryLifting
                         null, new[] {typeof (IMaterializer<T>)});
                     var list = typeof (T).GetProperties(BindingFlags.Instance | BindingFlags.Public)
                         .Select(property => Tuple.Create(property, typeBuilder.DefineField(property.Name, typeof (int), FieldAttributes.Public))).ToList();
-                    var methodBuilder = typeBuilder.DefineMethod(
-                        GetMethodInfo<Func<IMaterializer<object>, SqlDataReader, object>>((materializer, reader) => materializer.Materialize(reader)).Name,
+                    var methodBuilder = typeBuilder.DefineMethod(nameof(IMaterializer<object>.Materialize),
                         MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.HideBySig | MethodAttributes.Final |
                             MethodAttributes.NewSlot, typeof (T), new[] {typeof (SqlDataReader)});
                     var generator = methodBuilder.GetILGenerator();
@@ -310,7 +309,7 @@ namespace QueryLifting
             return command;
         }
 
-        private static readonly Dictionary<Type, MethodInfo> AddParamsMethods = new[] {
+        private static readonly Dictionary<Type, MethodInfo> addParamsMethods = new[] {
             GetMethodInfo<Func<SqlCommand, string, int, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, int?, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, decimal, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
@@ -354,7 +353,7 @@ namespace QueryLifting
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Param<>))
                 return paramMethod.MakeGenericMethod(type.GetGenericArguments());
             else
-                return AddParamsMethods[type];
+                return addParamsMethods[type];
         }
 
         private static readonly MethodInfo paramMethod = GetMethodInfo<Func<SqlCommand, string, Param<object>, SqlParameter>>(

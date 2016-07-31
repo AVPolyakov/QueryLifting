@@ -1,5 +1,3 @@
-using System.Data.SqlClient;
-
 namespace QueryLifting
 {
     public struct Param<T>
