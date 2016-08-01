@@ -6,6 +6,7 @@ using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using QueryLifting;
 using static QueryLifting.SqlUtil;
+using static Foo.FooSqlUtil;
 
 namespace Foo
 {
@@ -82,6 +83,40 @@ WHERE 1 = 1");
                 new SqlCommand("INSERT T001 (C1) VALUES (@C1)").AddParams(p).NonQuery());
         }
 
+        private static void M5(DateTime? date, int offset, int pageSize)
+        {
+            var paggingInfo = new {date, offset, pageSize}.Apply(p => PagedQueries<A001>(
+                (builder, command) => {
+                    builder.Append(@"
+SELECT PostId, Text,  CreationDate
+FROM Post
+WHERE 1 = 1");
+                    if (p.date.HasValue) builder.Append(command, @"
+    AND CreationDate > @date", new {p.date});
+                },
+                (builder, command) => builder.Append("CreationDate DESC, PostId"), p.offset, p.pageSize));
+            foreach (var record in paggingInfo.Data)
+                Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
+            Console.WriteLine($"{paggingInfo.Count.Read()}");
+        }
+
+        private static void M6(DateTime? date, int offset, int pageSize)
+        {
+            var paggingInfo = new {date, offset, pageSize}.Apply(p => PagedQuery<A001>(
+                (builder, command) => {
+                    builder.Append(@"
+SELECT PostId, Text,  CreationDate
+FROM Post
+WHERE 1 = 1");
+                    if (p.date.HasValue) builder.Append(command, @"
+    AND CreationDate > @date", new {p.date});
+                },
+                (builder, command) => builder.Append("CreationDate DESC, PostId"), p.offset, p.pageSize)).Read();
+            foreach (var record in paggingInfo.Data)
+                Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
+            Console.WriteLine($"{paggingInfo.Count}");
+        }
+
         static void Main()
         {
             ConnectionStringFunc = () => ConnectionString;
@@ -90,6 +125,8 @@ WHERE 1 = 1");
             M2();
             M3(new DateTime(2015, 1, 1));
             M4();
+            M5(new DateTime(2015, 1, 1), 1, 1);
+            M6(new DateTime(2015, 1, 1), 1, 1);
         }
 
         //Scripts for database are located in folder DatabaseScripts in project root.

@@ -45,6 +45,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AnonymousTypes.cs" />
+    <Compile Include="FooSqlUtil.cs" />
+    <Compile Include="PaggingInfo.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using QueryLifting;
+using static Foo.FooSqlUtil;
 using static Foo.Program;
 
 namespace Foo.Tests
@@ -27,10 +28,16 @@ namespace Foo.Tests
                 var methodInfo = usage.ResolveMember as MethodInfo;
                 if (methodInfo != null &&
                     (methodInfo.IsGenericMethod && new[] {
-                        readMethod, queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod, deleteQueryMethod
+                        readMethod, queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod, deleteQueryMethod,
+                        pagedQueriesMethod, pagedQueryMethod
                     }.Contains(methodInfo.GetGenericMethodDefinition()) ||
                      methodInfo == nonQueryMethod))
                 {
+                    var currentMethod = usage.CurrentMethod as MethodInfo;
+                    if (currentMethod != null && currentMethod.IsGenericMethod && new[] {
+                        pagedQueriesMethod, pagedQueryMethod
+                    }.Contains(currentMethod.GetGenericMethodDefinition()))
+                        continue;
                     var invocation = usage.CurrentMethod.GetStaticInvocation();
                     if (!invocation.HasValue) throw new ApplicationException();
                     foreach (var combination in usage.CurrentMethod.GetParameters().GetAllCombinations(TestValues))
@@ -105,6 +112,10 @@ namespace Foo.Tests
 
         private static readonly MethodInfo nonQueryMethod = SqlUtil.GetMethodInfo<Action<SqlCommand, string>>(
             (command, connectionString) => command.NonQuery(connectionString));
+
+        private static readonly MethodInfo pagedQueriesMethod = typeof(FooSqlUtil).GetMethod(nameof(PagedQueries));
+
+        private static readonly MethodInfo pagedQueryMethod = typeof(FooSqlUtil).GetMethod(nameof(PagedQuery));
 
         [TestMethod]
         public void ExplicitTest()
