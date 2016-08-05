@@ -2,6 +2,12 @@ using System;
 
 namespace QueryLifting
 {
+    /// <summary>
+    /// https://en.wikipedia.org/wiki/Option_type
+    /// Java https://docs.oracle.com/javase/8/docs/api/java/util/Optional.html
+    /// F# https://msdn.microsoft.com/en-us/visualfsharpdocs/conceptual/options-%5Bfsharp%5D
+    /// C# Roslyn https://github.com/dotnet/roslyn/blob/56f605c41915317ccdb925f66974ee52282609e7/src/Compilers/Core/Portable/Optional.cs
+    /// </summary>
     public struct Option<T>
     {
         private readonly T value;
