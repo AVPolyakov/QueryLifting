@@ -24,5 +24,5 @@ the [code of class](Foo/AnonymousTypes.cs#L6-L11)
 with correct set of properties.
 
 You can explicitly specify
-the [method with query](Foo.Tests/QueryTests.cs#L123)
-and the [test values for the particular parameter](Foo.Tests/QueryTests.cs#L124).
+the [method with query](Foo.Tests/QueryTests.cs#L135)
+and the [test values for the particular parameter](Foo.Tests/QueryTests.cs#L136).

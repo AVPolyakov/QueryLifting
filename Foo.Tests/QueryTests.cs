@@ -74,6 +74,13 @@ namespace Foo.Tests
                 var args = method.GetParameters().Select(parameter => TestValues(parameter).First()).ToArray();
                 return new[] {method.Invoke(null, args)};
             }
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Func<>))
+            {
+                var method = SqlUtil.GetMethodInfo<Func<int, Func<int>>>(_ => CreateFunc<int>(_))
+                    .GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
+                return method.GetParameters().GetAllCombinations(TestValues)
+                    .Select(args => method.Invoke(null, args.ToArray()));
+            }
             throw new ApplicationException();
         }
 
@@ -90,6 +97,11 @@ namespace Foo.Tests
         private static Param<T> CreateParam<T>(T value)
         {
             return value.Param();
+        }
+
+        private static Func<T> CreateFunc<T>(T arg)
+        {
+            return () => arg;
         }
 
         private static readonly MethodInfo readMethod = SqlUtil.GetMethodInfo<Func<SqlCommand, string, IEnumerable<object>>>(

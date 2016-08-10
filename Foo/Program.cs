@@ -117,6 +117,17 @@ WHERE 1 = 1");
             Console.WriteLine($"{paggingInfo.Count}");
         }
 
+        private static void M7()
+        {
+            foreach (var record in new {date = Func.New(() => DateTime.Now)}.Apply(p => new SqlCommand(@"
+SELECT PostId, Text,  CreationDate
+FROM Post
+WHERE CreationDate > @date").AddParams(new {date = p.date()}).Read<A001>()))
+            {
+                Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
+            }
+        }
+
         static void Main()
         {
             ConnectionStringFunc = () => ConnectionString;
@@ -127,6 +138,7 @@ WHERE 1 = 1");
             M4();
             M5(new DateTime(2015, 1, 1), 1, 1);
             M6(new DateTime(2015, 1, 1), 1, 1);
+            M7();
         }
 
         //Scripts for database are located in folder DatabaseScripts in project root.

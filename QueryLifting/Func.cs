@@ -8,5 +8,10 @@ namespace QueryLifting
         {
             return func(p);
         }
+
+        public static Func<T> New<T>(Func<T> func)
+        {
+            return func;
+        }
     }
 }
