@@ -6,6 +6,7 @@ using System.Reflection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using QueryLifting;
 using static Foo.FooSqlUtil;
+using static QueryLifting.SqlUtil;
 using static Foo.Program;
 
 namespace Foo.Tests
@@ -13,10 +14,10 @@ namespace Foo.Tests
     [TestClass]
     public class QueryTests
     {
-        [TestInitialize]
-        public void OnStartup()
+        [AssemblyInitialize]
+        public static void OnStartup(TestContext context)
         {
-            SqlUtil.ConnectionStringFunc = () => ConnectionString;
+            Init();
             SqlUtil.QueryChecker = new QueryChecker();
         }
 
@@ -56,8 +57,8 @@ namespace Foo.Tests
             if (type == typeof (DateTime)) return new object[] {new DateTime(2001, 1, 1)};
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Nullable<>))
                 return new[] {
-                    SqlUtil.GetMethodInfo<Func<int?>>(() => CreateNullable<int>()),
-                    SqlUtil.GetMethodInfo<Func<int, int?>>(_ => CreateNullable(_))
+                    GetMethodInfo<Func<int?>>(() => CreateNullable<int>()),
+                    GetMethodInfo<Func<int, int?>>(_ => CreateNullable(_))
                 }.SelectMany(prototypeMethod => {
                     var method = prototypeMethod.GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
                     return method.GetParameters().GetAllCombinations(TestValues)
@@ -69,18 +70,20 @@ namespace Foo.Tests
                         .Select(args => constructorInfo.Invoke(args.ToArray())));
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Param<>))
             {
-                var method = SqlUtil.GetMethodInfo<Func<object, Param<object>>>(_ => CreateParam(_))
+                var method = GetMethodInfo<Func<object, Param<object>>>(_ => CreateParam(_))
                     .GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
                 var args = method.GetParameters().Select(parameter => TestValues(parameter).First()).ToArray();
                 return new[] {method.Invoke(null, args)};
             }
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Func<>))
             {
-                var method = SqlUtil.GetMethodInfo<Func<int, Func<int>>>(_ => CreateFunc<int>(_))
+                var method = GetMethodInfo<Func<int, Func<int>>>(_ => CreateFunc(_))
                     .GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
                 return method.GetParameters().GetAllCombinations(TestValues)
                     .Select(args => method.Invoke(null, args.ToArray()));
             }
+            if (type.IsEnum)
+                return Enum.GetValues(type).Cast<object>();
             throw new ApplicationException();
         }
 
@@ -104,25 +107,25 @@ namespace Foo.Tests
             return () => arg;
         }
 
-        private static readonly MethodInfo readMethod = SqlUtil.GetMethodInfo<Func<SqlCommand, string, IEnumerable<object>>>(
+        private static readonly MethodInfo readMethod = GetMethodInfo<Func<SqlCommand, string, IEnumerable<object>>>(
             (command, connectionString) => command.Read<object>(connectionString)).GetGenericMethodDefinition();
 
-        private static readonly MethodInfo queryMethod = SqlUtil.GetMethodInfo<Func<SqlCommand, string, Func<SqlDataReader, object>, Query<object>>>(
+        private static readonly MethodInfo queryMethod = GetMethodInfo<Func<SqlCommand, string, Func<SqlDataReader, object>, Query<object>>>(
             (command, connectionString, func) => command.Query(func, connectionString)).GetGenericMethodDefinition();
 
-        private static readonly MethodInfo queryMethod2 = SqlUtil.GetMethodInfo<Func<SqlCommand, string, Func<SqlDataReader, object>, Query<IEnumerable<object>>>>(
+        private static readonly MethodInfo queryMethod2 = GetMethodInfo<Func<SqlCommand, string, Func<SqlDataReader, object>, Query<IEnumerable<object>>>>(
             (command, connectionString, func) => command.Query<object>(connectionString)).GetGenericMethodDefinition();
 
-        private static readonly MethodInfo insertQueryMethod = SqlUtil.GetMethodInfo<Func<object, string, object, Option<string>, Query<IEnumerable<object>>>>(
-            (prototype, table, p, connectionString) => SqlUtil.InsertQuery(prototype, table, p, connectionString)).GetGenericMethodDefinition();
+        private static readonly MethodInfo insertQueryMethod = GetMethodInfo<Func<object, string, object, Option<string>, Query<IEnumerable<object>>>>(
+            (prototype, table, p, connectionString) => InsertQuery(prototype, table, p, connectionString)).GetGenericMethodDefinition();
 
-        private static readonly MethodInfo updateQueryMethod = SqlUtil.GetMethodInfo<Func<string, object, Option<string>, NonQuery>>(
-            (table, p, connectionString) => SqlUtil.UpdateQuery(table, p, connectionString)).GetGenericMethodDefinition();
+        private static readonly MethodInfo updateQueryMethod = GetMethodInfo<Func<string, object, Option<string>, NonQuery>>(
+            (table, p, connectionString) => UpdateQuery(table, p, connectionString)).GetGenericMethodDefinition();
 
-        private static readonly MethodInfo deleteQueryMethod = SqlUtil.GetMethodInfo<Func<string, object, Option<string>, NonQuery>>(
-            (table, p, connectionString) => SqlUtil.DeleteQuery(table, p, connectionString)).GetGenericMethodDefinition();
+        private static readonly MethodInfo deleteQueryMethod = GetMethodInfo<Func<string, object, Option<string>, NonQuery>>(
+            (table, p, connectionString) => DeleteQuery(table, p, connectionString)).GetGenericMethodDefinition();
 
-        private static readonly MethodInfo nonQueryMethod = SqlUtil.GetMethodInfo<Action<SqlCommand, string>>(
+        private static readonly MethodInfo nonQueryMethod = GetMethodInfo<Action<SqlCommand, string>>(
             (command, connectionString) => command.NonQuery(connectionString));
 
         private static readonly MethodInfo pagedQueriesMethod = typeof(FooSqlUtil).GetMethod(nameof(PagedQueries));

@@ -56,13 +56,20 @@ namespace Foo.Tests
         {
             if (AllowDBNull(reader, ordinal))
             {
-                if (!(type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Option<>) && type.GetGenericArguments().Single() == reader.GetFieldType(ordinal)))
+                if (!(type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Option<>) &&
+                      TypesAreCompatible(reader.GetFieldType(ordinal), type.GetGenericArguments().Single())))
                     throw new ApplicationException();
             }
             else
             {
-                if (type != reader.GetFieldType(ordinal)) throw new ApplicationException();
+                if (!TypesAreCompatible(reader.GetFieldType(ordinal), type)) throw new ApplicationException();
             }
+        }
+
+        private static bool TypesAreCompatible(Type dbType, Type type)
+        {
+            if (dbType == typeof (int) && type == typeof (MyEnum)) return true;
+            return type == dbType;
         }
 
         private static void WriteSourceCode(SqlDataReader reader, Type type)

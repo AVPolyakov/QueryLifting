@@ -128,9 +128,16 @@ WHERE CreationDate > @date").AddParams(new {date = p.date()}).Read<A001>()))
             }
         }
 
+        private static void M8()
+        {
+            var single = new {a = MyEnum.A}
+                .Apply(p => new SqlCommand(@"SELECT @a AS a").AddParams(p).Read<Option<MyEnum>>()).Single();
+            Assert.AreEqual(MyEnum.A, single);
+        }
+
         static void Main()
         {
-            ConnectionStringFunc = () => ConnectionString;
+            Init();
 
             M1(new DateTime(2015, 1, 1));
             M2();
@@ -139,9 +146,25 @@ WHERE CreationDate > @date").AddParams(new {date = p.date()}).Read<A001>()))
             M5(new DateTime(2015, 1, 1), 1, 1);
             M6(new DateTime(2015, 1, 1), 1, 1);
             M7();
+            M8();
+        }
+
+        public static void Init()
+        {
+            ConnectionStringFunc = () => ConnectionString;
+            AddParamsMethods.Add(typeof (MyEnum), GetMethodInfo<Func<SqlCommand, string, MyEnum, SqlParameter>>(
+                (command, name, value) => command.AddParam(name, value)));
+            MethodInfos.Add(typeof (Option<MyEnum>), GetMethodInfo<Func<SqlDataReader, int, Option<MyEnum>>>(
+                (reader, i) => reader.GetMyEnum(i)));
         }
 
         //Scripts for database are located in folder DatabaseScripts in project root.
         public static string ConnectionString => @"Data Source=(local)\SQL2014;Initial Catalog=QueryLifting;Integrated Security=True";
+    }
+
+    public enum MyEnum
+    {
+        A,
+        B
     }
 }

@@ -309,7 +309,7 @@ namespace QueryLifting
             return command;
         }
 
-        private static readonly Dictionary<Type, MethodInfo> addParamsMethods = new[] {
+        public static readonly Dictionary<Type, MethodInfo> AddParamsMethods = new[] {
             GetMethodInfo<Func<SqlCommand, string, int, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, int?, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, decimal, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
@@ -353,7 +353,7 @@ namespace QueryLifting
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Param<>))
                 return paramMethod.MakeGenericMethod(type.GetGenericArguments());
             else
-                return addParamsMethods[type];
+                return AddParamsMethods[type];
         }
 
         private static readonly MethodInfo paramMethod = GetMethodInfo<Func<SqlCommand, string, Param<object>, SqlParameter>>(

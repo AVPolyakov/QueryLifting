@@ -9,6 +9,16 @@ namespace Foo
 {
     public static class FooSqlUtil
     {
+        public static SqlParameter AddParam(this SqlCommand command, string parameterName, MyEnum value)
+        {
+            return command.AddParam(parameterName, (int) value);
+        }
+
+        public static Option<MyEnum> GetMyEnum(this SqlDataReader reader, int ordinal)
+        {
+            return reader.IsDBNull(ordinal) ? new Option<MyEnum>() : (MyEnum) reader.GetInt32(ordinal);
+        }
+
         public static PaggingInfo<IEnumerable<TData>, Query<int>> PagedQueries<TData>(
             Action<StringBuilder, SqlCommand> query, Action<StringBuilder, SqlCommand> orderBy, int offset, int pageSize)
         {
