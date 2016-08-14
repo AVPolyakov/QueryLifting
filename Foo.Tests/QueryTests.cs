@@ -55,6 +55,7 @@ namespace Foo.Tests
             if (type == typeof (decimal)) return new object[] {0m};
             if (type == typeof (Guid)) return new object[] {default(Guid)};
             if (type == typeof (DateTime)) return new object[] {new DateTime(2001, 1, 1)};
+            if (type.IsEnum) return Enum.GetValues(type).Cast<object>();
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Nullable<>))
                 return new[] {
                     GetMethodInfo<Func<int?>>(() => CreateNullable<int>()),
@@ -68,13 +69,6 @@ namespace Foo.Tests
                 return type.GetConstructors(UsageResolver.AllBindingFlags)
                     .SelectMany(constructorInfo => constructorInfo.GetParameters().GetAllCombinations(TestValues)
                         .Select(args => constructorInfo.Invoke(args.ToArray())));
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Param<>))
-            {
-                var method = GetMethodInfo<Func<object, Param<object>>>(_ => CreateParam(_))
-                    .GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
-                var args = method.GetParameters().Select(parameter => TestValues(parameter).First()).ToArray();
-                return new[] {method.Invoke(null, args)};
-            }
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Func<>))
             {
                 var method = GetMethodInfo<Func<int, Func<int>>>(_ => CreateFunc(_))
@@ -82,8 +76,13 @@ namespace Foo.Tests
                 return method.GetParameters().GetAllCombinations(TestValues)
                     .Select(args => method.Invoke(null, args.ToArray()));
             }
-            if (type.IsEnum)
-                return Enum.GetValues(type).Cast<object>();
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Param<>))
+            {
+                var method = GetMethodInfo<Func<object, Param<object>>>(_ => CreateParam(_))
+                    .GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
+                var args = method.GetParameters().Select(parameter => TestValues(parameter).First()).ToArray();
+                return new[] {method.Invoke(null, args)};
+            }
             throw new ApplicationException();
         }
 
