@@ -19,11 +19,6 @@ namespace QueryLifting
             return new Query<T>(command, readerFunc, connectionString);
         }
 
-        public static Query<IEnumerable<T>> Query<T>(this SqlCommand command, Option<string> connectionString = new Option<string>())
-        {
-            return command.Query(Read<T>, connectionString);
-        }
-
         public static NonQuery NonQuery(this SqlCommand command, Option<string> connectionString = new Option<string>())
         {
             return new NonQuery(command, connectionString);
@@ -34,14 +29,19 @@ namespace QueryLifting
             return command.Query<T>(connectionString).Read();
         }
 
-        public static IEnumerable<T> Read<T>(this SqlDataReader reader)
+        public static Query<IEnumerable<T>> Query<T>(this SqlCommand command, Option<string> connectionString = new Option<string>())
         {
-            return QueryChecker != null ? QueryChecker.Read<T>(reader) : GetEnumerable<T>(reader);
+            return command.Query(Read<T>, connectionString);
         }
 
-        private static IEnumerable<T> GetEnumerable<T>(SqlDataReader reader)
+        public static IEnumerable<T> Read<T>(this SqlDataReader reader)
         {
             var materializer = reader.GetMaterializer<T>();
+            return QueryChecker != null ? QueryChecker.Read<T>(reader) : GetEnumerable(reader, materializer);
+        }
+
+        private static IEnumerable<T> GetEnumerable<T>(SqlDataReader reader, Func<T> materializer)
+        {
             while (reader.Read()) yield return materializer();
         }
 
@@ -115,18 +115,18 @@ namespace QueryLifting
         }
 
         public static readonly Dictionary<Type, MethodInfo> MethodInfos = new[] {
-            GetMethodInfo<Func<SqlDataReader, int, int>>(((reader, i) => reader.GetInt32(i))),
-            GetMethodInfo<Func<SqlDataReader, int, Option<int>>>(((reader, i) => reader.GetOptionInt32(i))),
-            GetMethodInfo<Func<SqlDataReader, int, decimal>>(((reader, i) => reader.GetDecimal(i))),
-            GetMethodInfo<Func<SqlDataReader, int, Option<decimal>>>(((reader, i) => reader.GetOptionDecimal(i))),
-            GetMethodInfo<Func<SqlDataReader, int, Guid>>(((reader, i) => reader.GetGuid(i))),
-            GetMethodInfo<Func<SqlDataReader, int, Option<Guid>>>(((reader, i) => reader.GetOptionGuid(i))),
-            GetMethodInfo<Func<SqlDataReader, int, DateTime>>(((reader, i) => reader.GetDateTime(i))),
-            GetMethodInfo<Func<SqlDataReader, int, Option<DateTime>>>(((reader, i) => reader.GetOptionDateTime(i))),
-            GetMethodInfo<Func<SqlDataReader, int, string>>(((reader, i) => reader.GetString(i))),
-            GetMethodInfo<Func<SqlDataReader, int, Option<string>>>(((reader, i) => reader.GetOptionString(i))),
+            GetMethodInfo<Func<SqlDataReader, int, int>>((reader, i) => reader.GetInt32(i)),
+            GetMethodInfo<Func<SqlDataReader, int, Option<int>>>((reader, i) => reader.GetOptionInt32(i)),
+            GetMethodInfo<Func<SqlDataReader, int, decimal>>((reader, i) => reader.GetDecimal(i)),
+            GetMethodInfo<Func<SqlDataReader, int, Option<decimal>>>((reader, i) => reader.GetOptionDecimal(i)),
+            GetMethodInfo<Func<SqlDataReader, int, Guid>>((reader, i) => reader.GetGuid(i)),
+            GetMethodInfo<Func<SqlDataReader, int, Option<Guid>>>((reader, i) => reader.GetOptionGuid(i)),
+            GetMethodInfo<Func<SqlDataReader, int, DateTime>>((reader, i) => reader.GetDateTime(i)),
+            GetMethodInfo<Func<SqlDataReader, int, Option<DateTime>>>((reader, i) => reader.GetOptionDateTime(i)),
+            GetMethodInfo<Func<SqlDataReader, int, string>>((reader, i) => reader.GetString(i)),
+            GetMethodInfo<Func<SqlDataReader, int, Option<string>>>((reader, i) => reader.GetOptionString(i)),
             GetMethodInfo<Func<SqlDataReader, int, bool>>(((reader, i) => reader.GetBoolean(i))),
-            GetMethodInfo<Func<SqlDataReader, int, Option<bool>>>(((reader, i) => reader.GetOptionBoolean(i))),
+            GetMethodInfo<Func<SqlDataReader, int, Option<bool>>>((reader, i) => reader.GetOptionBoolean(i))
         }.ToDictionary(_ => _.ReturnType);
 
         private static class Cache<T>

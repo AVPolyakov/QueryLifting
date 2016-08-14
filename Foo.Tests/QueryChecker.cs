@@ -42,7 +42,6 @@ namespace Foo.Tests
                         Check(propertyInfo.PropertyType, reader, ordinal);
                     }
                 }
-                reader.GetMaterializer<T>();
             }
             catch (Exception e)
             {
