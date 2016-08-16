@@ -14,6 +14,26 @@ namespace Foo
     {
         private static void M1(DateTime? date)
         {
+            new {date}.Apply(p => {
+                var command = new SqlCommand();
+                var builder = new StringBuilder(@"
+SELECT PostId, Text,  CreationDate
+FROM Post
+WHERE 1 = 1");
+                if (p.date.HasValue) builder.Append(command, @"
+    AND CreationDate > @date", new {p.date});
+                command.CommandText = builder.ToString();
+                return command.Read(reader => {
+                    Console.WriteLine("{0} {1} {2}", reader.Int32(reader.GetOrdinal("PostId")),
+                        reader.OptionString(reader.GetOrdinal("Text")),
+                        reader.DateTime(reader.GetOrdinal("CreationDate")));
+                    return new {};
+                });
+            }).ToList();
+        }
+
+        private static void M2(DateTime? date)
+        {
             foreach (var record in new {date}.Apply(p => {
                 var command = new SqlCommand();
                 var builder = new StringBuilder(@"
@@ -30,7 +50,7 @@ WHERE 1 = 1");
             }
         }
 
-        private static void M2()
+        private static void M3()
         {
             var id = new {Text = "Test", CreationDate = DateTime.Now}.Apply(p =>
                 InsertQuery(default(int), "Post", p)).Read().Single();
@@ -58,7 +78,7 @@ WHERE 1 = 1");
             }
         }
 
-        private static void M3(DateTime? date)
+        private static void M4(DateTime? date)
         {
             foreach (var record in ReadPosts(date))
                 Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
@@ -77,13 +97,13 @@ WHERE 1 = 1");
             return command.Read<A001>();
         }
 
-        private static void M4()
+        private static void M5()
         {
             new {C1 = new DateTime?().Param()}.Apply(p =>
                 new SqlCommand("INSERT T001 (C1) VALUES (@C1)").AddParams(p).NonQuery());
         }
 
-        private static void M5(DateTime? date, int offset, int pageSize)
+        private static void M6(DateTime? date, int offset, int pageSize)
         {
             var paggingInfo = new {date, offset, pageSize}.Apply(p => PagedQueries<A001>(
                 (builder, command) => {
@@ -100,7 +120,7 @@ WHERE 1 = 1");
             Console.WriteLine($"{paggingInfo.Count.Read()}");
         }
 
-        private static void M6(DateTime? date, int offset, int pageSize)
+        private static void M7(DateTime? date, int offset, int pageSize)
         {
             var paggingInfo = new {date, offset, pageSize}.Apply(p => PagedQuery<A001>(
                 (builder, command) => {
@@ -117,7 +137,7 @@ WHERE 1 = 1");
             Console.WriteLine($"{paggingInfo.Count}");
         }
 
-        private static void M7()
+        private static void M8()
         {
             foreach (var record in new {date = Func.New(() => DateTime.Now)}.Apply(p => new SqlCommand(@"
 SELECT PostId, Text,  CreationDate
@@ -128,7 +148,7 @@ WHERE CreationDate > @date").AddParams(new {date = p.date()}).Read<A001>()))
             }
         }
 
-        private static void M8()
+        private static void M9()
         {
             var single = new {a = MyEnum.A}
                 .Apply(p => new SqlCommand(@"SELECT @a AS a").AddParams(p).Read<Option<MyEnum>>()).Single();
@@ -140,13 +160,14 @@ WHERE CreationDate > @date").AddParams(new {date = p.date()}).Read<A001>()))
             Init();
 
             M1(new DateTime(2015, 1, 1));
-            M2();
-            M3(new DateTime(2015, 1, 1));
-            M4();
-            M5(new DateTime(2015, 1, 1), 1, 1);
+            M2(new DateTime(2015, 1, 1));
+            M3();
+            M4(new DateTime(2015, 1, 1));
+            M5();
             M6(new DateTime(2015, 1, 1), 1, 1);
-            M7();
+            M7(new DateTime(2015, 1, 1), 1, 1);
             M8();
+            M9();
         }
 
         public static void Init()
@@ -155,7 +176,7 @@ WHERE CreationDate > @date").AddParams(new {date = p.date()}).Read<A001>()))
             AddParamsMethods.Add(typeof (MyEnum), GetMethodInfo<Func<SqlCommand, string, MyEnum, SqlParameter>>(
                 (command, name, value) => command.AddParam(name, value)));
             MethodInfos.Add(typeof (Option<MyEnum>), GetMethodInfo<Func<SqlDataReader, int, Option<MyEnum>>>(
-                (reader, i) => reader.GetMyEnum(i)));
+                (reader, i) => reader.OptionMyEnum(i)));
         }
 
         //Scripts for database are located in folder DatabaseScripts in project root.

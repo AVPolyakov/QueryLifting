@@ -1,9 +1,9 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
-using System.Reflection;
 using QueryLifting;
 
 namespace Foo.Tests
@@ -21,48 +21,66 @@ namespace Foo.Tests
             }
         }
 
-        public IEnumerable<T> Read<T>(SqlDataReader reader)
+        public IEnumerable<T> Read<T>(SqlDataReader reader, Func<T> materializer)
         {
-            var type = typeof(T);
+            var ordinals = new HashSet<int>();
+            if (!ordinalDictionary.TryAdd(reader, ordinals)) throw new ApplicationException();
             try
             {
-                if (SqlUtil.MethodInfos.ContainsKey(type))
-                {
-                    if (reader.FieldCount != 1) throw new ApplicationException();
-                    Check(type, reader, 0);
-                }
-                else
-                {
-                    if (!type.IsPublic) throw new ApplicationException();
-                    var propertyInfos = type.GetProperties(BindingFlags.Instance | BindingFlags.Public);
-                    if (reader.FieldCount != propertyInfos.Length) throw new ApplicationException();
-                    foreach (var propertyInfo in propertyInfos)
-                    {
-                        var ordinal = reader.GetOrdinal(propertyInfo.Name);
-                        Check(propertyInfo.PropertyType, reader, ordinal);
-                    }
-                }
+                materializer();
             }
-            catch (Exception e)
+            finally
             {
-                WriteSourceCode(reader, type);
-                throw new ApplicationException(e.Message, e);
+                HashSet<int> value;
+                if (!ordinalDictionary.TryRemove(reader, out value)) throw new ApplicationException();
+            }
+            if (ordinals.Count != reader.FieldCount)
+            {
+                WriteDataRetrievingCode(reader);
+                throw new ApplicationException();
             }
             return Enumerable.Empty<T>();
         }
 
-        private static void Check(Type type, SqlDataReader reader, int ordinal)
+        public T Check<T>(SqlDataReader reader, int ordinal)
         {
+            HashSet<int> ordinals;
+            if (!ordinalDictionary.TryGetValue(reader, out ordinals)) throw new ApplicationException();
+            ordinals.Add(ordinal);
+            var type = typeof (T);
             if (AllowDBNull(reader, ordinal))
             {
                 if (!(type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Option<>) &&
                       TypesAreCompatible(reader.GetFieldType(ordinal), type.GetGenericArguments().Single())))
+                {
+                    WriteDataRetrievingCode(reader);
                     throw new ApplicationException();
+                }
             }
             else
             {
-                if (!TypesAreCompatible(reader.GetFieldType(ordinal), type)) throw new ApplicationException();
+                if (!TypesAreCompatible(reader.GetFieldType(ordinal), type))
+                {
+                    WriteDataRetrievingCode(reader);
+                    throw new ApplicationException();
+                }
             }
+            return default(T);
+        }
+
+        public int GetOrdinal(SqlDataReader reader, string name)
+        {
+            int ordinal;
+            try
+            {
+                ordinal = reader.GetOrdinal(name);
+            }
+            catch (Exception)
+            {
+                WriteDataRetrievingCode(reader);
+                throw;
+            }
+            return ordinal;
         }
 
         private static bool TypesAreCompatible(Type dbType, Type type)
@@ -71,27 +89,21 @@ namespace Foo.Tests
             return type == dbType;
         }
 
-        private static void WriteSourceCode(SqlDataReader reader, Type type)
+        private static void WriteDataRetrievingCode(SqlDataReader reader)
         {
-            if (!SqlUtil.MethodInfos.ContainsKey(type))
-            {
-                var properties = string.Join(Environment.NewLine,
-                    Enumerable.Range(0, reader.FieldCount).Select(i => {
-                        var typeName = (AllowDBNull(reader, i) ? typeof(Option<>).MakeGenericType(reader.GetFieldType(i)) : reader.GetFieldType(i)).GetCSharpName();
-                        return $"        public {typeName} {reader.GetName(i)} {{ get; set; }}";
-                    }));
-                Console.WriteLine($@"    public class {type.GetCSharpName()}
-    {{
-{properties}
-    }}
-");
-            }
+            Console.WriteLine(string.Join(Environment.NewLine,
+                Enumerable.Range(0, reader.FieldCount).Select(i => {
+                    var typeName = (AllowDBNull(reader, i) ? typeof (Option<>).MakeGenericType(reader.GetFieldType(i)) : reader.GetFieldType(i)).GetCSharpName();
+                    return $"        public {typeName} {reader.GetName(i)} {{ get; set; }}";
+                })));
         }
 
         private static bool AllowDBNull(SqlDataReader reader, int ordinal)
         {
             return (bool)reader.GetSchemaTable().Rows[ordinal]["AllowDBNull"];
         }
+
+        private readonly ConcurrentDictionary<SqlDataReader, HashSet<int>> ordinalDictionary = new ConcurrentDictionary<SqlDataReader, HashSet<int>>();
 
         public void NonQuery(NonQuery query)
         {

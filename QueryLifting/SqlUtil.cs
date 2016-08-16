@@ -24,6 +24,12 @@ namespace QueryLifting
             return new NonQuery(command, connectionString);
         }
 
+        public static IEnumerable<T> Read<T>(this SqlCommand command, Func<SqlDataReader, T> materializer,
+            Option<string> connectionString = new Option<string>())
+        {
+            return command.Query(reader => reader.Read(() => materializer(reader)), connectionString).Read();
+        }
+
         public static IEnumerable<T> Read<T>(this SqlCommand command, Option<string> connectionString = new Option<string>())
         {
             return command.Query<T>(connectionString).Read();
@@ -36,8 +42,12 @@ namespace QueryLifting
 
         public static IEnumerable<T> Read<T>(this SqlDataReader reader)
         {
-            var materializer = reader.GetMaterializer<T>();
-            return QueryChecker != null ? QueryChecker.Read<T>(reader) : GetEnumerable(reader, materializer);
+            return Read(reader, reader.GetMaterializer<T>());
+        }
+
+        public static IEnumerable<T> Read<T>(this SqlDataReader reader, Func<T> materializer)
+        {
+            return QueryChecker != null ? QueryChecker.Read(reader, materializer) : GetEnumerable(reader, materializer);
         }
 
         private static IEnumerable<T> GetEnumerable<T>(SqlDataReader reader, Func<T> materializer)
@@ -79,34 +89,76 @@ namespace QueryLifting
             }
         }
 
-        public static Option<int> GetOptionInt32(this SqlDataReader reader, int ordinal)
+        public static int Int32(this SqlDataReader reader, int ordinal)
         {
-            return reader.IsDBNull(ordinal) ? new Option<int>() : reader.GetInt32(ordinal);
+            return QueryChecker != null ? QueryChecker.Check<int>(reader, ordinal) : reader.GetInt32(ordinal);
         }
 
-        public static Option<decimal> GetOptionDecimal(this SqlDataReader reader, int ordinal)
+        public static Option<int> OptionInt32(this SqlDataReader reader, int ordinal)
         {
-            return reader.IsDBNull(ordinal) ? new Option<decimal>() : reader.GetDecimal(ordinal);
+            return QueryChecker != null 
+                ? QueryChecker.Check<Option<int>>(reader, ordinal) 
+                : (reader.IsDBNull(ordinal) ? new Option<int>() : reader.GetInt32(ordinal));
         }
 
-        public static Option<Guid> GetOptionGuid(this SqlDataReader reader, int ordinal)
+        public static decimal Decimal(this SqlDataReader reader, int ordinal)
         {
-            return reader.IsDBNull(ordinal) ? new Option<Guid>() : reader.GetGuid(ordinal);
+            return QueryChecker != null ? QueryChecker.Check<decimal>(reader, ordinal) : reader.GetDecimal(ordinal);
         }
 
-        public static Option<DateTime> GetOptionDateTime(this SqlDataReader reader, int ordinal)
+        public static Option<decimal> OptionDecimal(this SqlDataReader reader, int ordinal)
         {
-            return reader.IsDBNull(ordinal) ? new Option<DateTime>() : reader.GetDateTime(ordinal);
+            return QueryChecker != null 
+                ? QueryChecker.Check<Option<decimal>>(reader, ordinal) 
+                : (reader.IsDBNull(ordinal) ? new Option<decimal>() : reader.GetDecimal(ordinal));
         }
 
-        public static Option<string> GetOptionString(this SqlDataReader reader, int ordinal)
+        public static Guid Guid(this SqlDataReader reader, int ordinal)
         {
-            return reader.IsDBNull(ordinal) ? new Option<string>() : reader.GetString(ordinal);
+            return QueryChecker != null ? QueryChecker.Check<Guid>(reader, ordinal) : reader.GetGuid(ordinal);
         }
 
-        public static Option<bool> GetOptionBoolean(this SqlDataReader reader, int ordinal)
+        public static Option<Guid> OptionGuid(this SqlDataReader reader, int ordinal)
         {
-            return reader.IsDBNull(ordinal) ? new Option<bool>() : reader.GetBoolean(ordinal);
+            return QueryChecker != null 
+                ? QueryChecker.Check<Option<Guid>>(reader, ordinal) 
+                : (reader.IsDBNull(ordinal) ? new Option<Guid>() : reader.GetGuid(ordinal));
+        }
+
+        public static DateTime DateTime(this SqlDataReader reader, int ordinal)
+        {
+            return QueryChecker != null ? QueryChecker.Check<DateTime>(reader, ordinal) : reader.GetDateTime(ordinal);
+        }
+
+        public static Option<DateTime> OptionDateTime(this SqlDataReader reader, int ordinal)
+        {
+            return QueryChecker != null 
+                ? QueryChecker.Check<Option<DateTime>>(reader, ordinal) 
+                : (reader.IsDBNull(ordinal) ? new Option<DateTime>() : reader.GetDateTime(ordinal));
+        }
+
+        public static string String(this SqlDataReader reader, int ordinal)
+        {
+            return QueryChecker != null ? QueryChecker.Check<string>(reader, ordinal) : reader.GetString(ordinal);
+        }
+
+        public static Option<string> OptionString(this SqlDataReader reader, int ordinal)
+        {
+            return QueryChecker != null 
+                ? QueryChecker.Check<Option<string>>(reader, ordinal) 
+                : (reader.IsDBNull(ordinal) ? new Option<string>() : reader.GetString(ordinal));
+        }
+
+        public static bool Boolean(this SqlDataReader reader, int ordinal)
+        {
+            return QueryChecker != null ? QueryChecker.Check<bool>(reader, ordinal) : reader.GetBoolean(ordinal);
+        }
+
+        public static Option<bool> OptionBoolean(this SqlDataReader reader, int ordinal)
+        {
+            return QueryChecker != null 
+                ? QueryChecker.Check<Option<bool>>(reader, ordinal) 
+                : (reader.IsDBNull(ordinal) ? new Option<bool>() : reader.GetBoolean(ordinal));
         }
 
         public static Func<T> GetMaterializer<T>(this SqlDataReader reader)
@@ -115,18 +167,18 @@ namespace QueryLifting
         }
 
         public static readonly Dictionary<Type, MethodInfo> MethodInfos = new[] {
-            GetMethodInfo<Func<SqlDataReader, int, int>>((reader, i) => reader.GetInt32(i)),
-            GetMethodInfo<Func<SqlDataReader, int, Option<int>>>((reader, i) => reader.GetOptionInt32(i)),
-            GetMethodInfo<Func<SqlDataReader, int, decimal>>((reader, i) => reader.GetDecimal(i)),
-            GetMethodInfo<Func<SqlDataReader, int, Option<decimal>>>((reader, i) => reader.GetOptionDecimal(i)),
-            GetMethodInfo<Func<SqlDataReader, int, Guid>>((reader, i) => reader.GetGuid(i)),
-            GetMethodInfo<Func<SqlDataReader, int, Option<Guid>>>((reader, i) => reader.GetOptionGuid(i)),
-            GetMethodInfo<Func<SqlDataReader, int, DateTime>>((reader, i) => reader.GetDateTime(i)),
-            GetMethodInfo<Func<SqlDataReader, int, Option<DateTime>>>((reader, i) => reader.GetOptionDateTime(i)),
-            GetMethodInfo<Func<SqlDataReader, int, string>>((reader, i) => reader.GetString(i)),
-            GetMethodInfo<Func<SqlDataReader, int, Option<string>>>((reader, i) => reader.GetOptionString(i)),
-            GetMethodInfo<Func<SqlDataReader, int, bool>>(((reader, i) => reader.GetBoolean(i))),
-            GetMethodInfo<Func<SqlDataReader, int, Option<bool>>>((reader, i) => reader.GetOptionBoolean(i))
+            GetMethodInfo<Func<SqlDataReader, int, int>>((reader, i) => reader.Int32(i)),
+            GetMethodInfo<Func<SqlDataReader, int, Option<int>>>((reader, i) => reader.OptionInt32(i)),
+            GetMethodInfo<Func<SqlDataReader, int, decimal>>((reader, i) => reader.Decimal(i)),
+            GetMethodInfo<Func<SqlDataReader, int, Option<decimal>>>((reader, i) => reader.OptionDecimal(i)),
+            GetMethodInfo<Func<SqlDataReader, int, Guid>>((reader, i) => reader.Guid(i)),
+            GetMethodInfo<Func<SqlDataReader, int, Option<Guid>>>((reader, i) => reader.OptionGuid(i)),
+            GetMethodInfo<Func<SqlDataReader, int, DateTime>>((reader, i) => reader.DateTime(i)),
+            GetMethodInfo<Func<SqlDataReader, int, Option<DateTime>>>((reader, i) => reader.OptionDateTime(i)),
+            GetMethodInfo<Func<SqlDataReader, int, string>>((reader, i) => reader.String(i)),
+            GetMethodInfo<Func<SqlDataReader, int, Option<string>>>((reader, i) => reader.OptionString(i)),
+            GetMethodInfo<Func<SqlDataReader, int, bool>>(((reader, i) => reader.Boolean(i))),
+            GetMethodInfo<Func<SqlDataReader, int, Option<bool>>>((reader, i) => reader.OptionBoolean(i))
         }.ToDictionary(_ => _.ReturnType);
 
         private static class Cache<T>
@@ -139,7 +191,7 @@ namespace QueryLifting
                 MethodInfo methodInfo;
                 if (MethodInfos.TryGetValue(typeof (T), out methodInfo))
                 {
-                    var dynamicMethod = new DynamicMethod(Guid.NewGuid().ToString("N"), typeof (T),
+                    var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), typeof (T),
                         new[] {typeof (SqlDataReader)}, true);
                     var ilGenerator = dynamicMethod.GetILGenerator();
                     ilGenerator.Emit(OpCodes.Ldarg_0);
@@ -152,7 +204,7 @@ namespace QueryLifting
                 }
                 else
                 {
-                    var typeBuilder = moduleBuilder.DefineType("T" + Guid.NewGuid().ToString("N"), TypeAttributes.NotPublic,
+                    var typeBuilder = moduleBuilder.DefineType("T" + System.Guid.NewGuid().ToString("N"), TypeAttributes.NotPublic,
                         null, new[] {typeof (IMaterializer<T>)});
                     var list = typeof (T).GetProperties(BindingFlags.Instance | BindingFlags.Public)
                         .Select(property => Tuple.Create(property, typeBuilder.DefineField(property.Name, typeof (int), FieldAttributes.Public))).ToList();
@@ -176,7 +228,7 @@ namespace QueryLifting
                     generator.Emit(OpCodes.Ldloc_0);
                     generator.Emit(OpCodes.Ret);
                     var type = typeBuilder.CreateType();
-                    var dynamicMethod = new DynamicMethod(Guid.NewGuid().ToString("N"), typeof (IMaterializer<T>),
+                    var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), typeof (IMaterializer<T>),
                         new[] {typeof (SqlDataReader)}, true);
                     var ilGenerator = dynamicMethod.GetILGenerator();
                     ilGenerator.DeclareLocal(type);
@@ -187,7 +239,7 @@ namespace QueryLifting
                         ilGenerator.Emit(OpCodes.Ldloc_0);
                         ilGenerator.Emit(OpCodes.Ldarg_0);
                         ilGenerator.Emit(OpCodes.Ldstr, fieldInfo.Name);
-                        ilGenerator.EmitCall(OpCodes.Callvirt, GetMethodInfo<Func<SqlDataReader, string, int>>((reader, name) => reader.GetOrdinal(name)), null);
+                        ilGenerator.EmitCall(OpCodes.Call, GetMethodInfo<Func<SqlDataReader, string, int>>((reader, name) => reader.Ordinal(name)), null);
                         ilGenerator.Emit(OpCodes.Stfld, fieldInfo);
                     }
                     ilGenerator.Emit(OpCodes.Ldloc_0);
@@ -203,11 +255,16 @@ namespace QueryLifting
             }
         }
 
+        public static int Ordinal(this SqlDataReader reader, string name)
+        {
+            return QueryChecker != null ? QueryChecker.GetOrdinal(reader, name) : reader.GetOrdinal(name);
+        }
+
         private static readonly ModuleBuilder moduleBuilder;
 
         static SqlUtil()
         {
-            var assemblyName = new AssemblyName {Name = Guid.NewGuid().ToString("N")};
+            var assemblyName = new AssemblyName {Name = System.Guid.NewGuid().ToString("N")};
             moduleBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(assemblyName,
                 AssemblyBuilderAccess.Run).DefineDynamicModule(assemblyName.Name);
         }
@@ -287,7 +344,7 @@ namespace QueryLifting
 
             static ParamCache()
             {
-                var dynamicMethod = new DynamicMethod(Guid.NewGuid().ToString("N"), typeof (SqlParameter),
+                var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), typeof (SqlParameter),
                     new[] {typeof (SqlCommand), typeof (string), typeof (T)}, true);
                 var ilGenerator = dynamicMethod.GetILGenerator();
                 ilGenerator.Emit(OpCodes.Ldarg_0);
@@ -328,7 +385,7 @@ namespace QueryLifting
             static AddParamsCache()
             {
                 if (!typeof (T).IsAnonymousType()) throw new InvalidOperationException();
-                var dynamicMethod = new DynamicMethod(Guid.NewGuid().ToString("N"), null,
+                var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), null,
                     new[] {typeof (SqlCommand), typeof(T)}, true);
                 var ilGenerator = dynamicMethod.GetILGenerator();
                 foreach (var info in typeof (T).GetProperties())

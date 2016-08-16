@@ -14,9 +14,11 @@ namespace Foo
             return command.AddParam(parameterName, (int) value);
         }
 
-        public static Option<MyEnum> GetMyEnum(this SqlDataReader reader, int ordinal)
+        public static Option<MyEnum> OptionMyEnum(this SqlDataReader reader, int ordinal)
         {
-            return reader.IsDBNull(ordinal) ? new Option<MyEnum>() : (MyEnum) reader.GetInt32(ordinal);
+            return SqlUtil.QueryChecker != null 
+                ? SqlUtil.QueryChecker.Check<Option<MyEnum>>(reader, ordinal) 
+                : (reader.IsDBNull(ordinal) ? new Option<MyEnum>() : (MyEnum) reader.GetInt32(ordinal));
         }
 
         public static PaggingInfo<IEnumerable<TData>, Query<int>> PagedQueries<TData>(

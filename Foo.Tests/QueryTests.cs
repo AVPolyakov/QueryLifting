@@ -29,8 +29,8 @@ namespace Foo.Tests
                 var methodInfo = usage.ResolveMember as MethodInfo;
                 if (methodInfo != null &&
                     (methodInfo.IsGenericMethod && new[] {
-                        readMethod, queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod, deleteQueryMethod,
-                        pagedQueriesMethod, pagedQueryMethod
+                        readMethod, readMethod2, queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod,
+                        deleteQueryMethod, pagedQueriesMethod, pagedQueryMethod
                     }.Contains(methodInfo.GetGenericMethodDefinition()) ||
                      methodInfo == nonQueryMethod))
                 {
@@ -108,6 +108,9 @@ namespace Foo.Tests
 
         private static readonly MethodInfo readMethod = GetMethodInfo<Func<SqlCommand, string, IEnumerable<object>>>(
             (command, connectionString) => command.Read<object>(connectionString)).GetGenericMethodDefinition();
+
+        private static readonly MethodInfo readMethod2 = GetMethodInfo<Func<SqlCommand, Func<SqlDataReader, object>, string, IEnumerable<object>>>(
+            (command, materializer, connectionString) => command.Read(materializer, connectionString)).GetGenericMethodDefinition();
 
         private static readonly MethodInfo queryMethod = GetMethodInfo<Func<SqlCommand, string, Func<SqlDataReader, object>, Query<object>>>(
             (command, connectionString, func) => command.Query(func, connectionString)).GetGenericMethodDefinition();
