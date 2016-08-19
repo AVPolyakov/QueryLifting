@@ -18,33 +18,44 @@ namespace Foo.Tests
         public static void OnStartup(TestContext context)
         {
             Init();
-            SqlUtil.QueryChecker = new QueryChecker();
         }
 
         [TestMethod]
         public void TestQueries()
         {
-            foreach (var usage in new[] {typeof(Program)}.SelectMany(_ => _.Assembly.GetTypes()).ResolveUsages())
-            {
-                var methodInfo = usage.ResolveMember as MethodInfo;
-                if (methodInfo != null &&
-                    (methodInfo.IsGenericMethod && new[] {
-                        readMethod, readMethod2, queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod,
-                        deleteQueryMethod, pagedQueriesMethod, pagedQueryMethod
-                    }.Contains(methodInfo.GetGenericMethodDefinition()) ||
-                     methodInfo == nonQueryMethod))
+            UsingQueryChecker(new QueryChecker(), () => {
+                foreach (var usage in new[] {typeof (Program)}.SelectMany(_ => _.Assembly.GetTypes()).ResolveUsages())
                 {
-                    var currentMethod = usage.CurrentMethod as MethodInfo;
-                    if (currentMethod != null && currentMethod.IsGenericMethod && new[] {
-                        pagedQueriesMethod, pagedQueryMethod
-                    }.Contains(currentMethod.GetGenericMethodDefinition()))
-                        continue;
-                    var invocation = usage.CurrentMethod.GetStaticInvocation();
-                    if (!invocation.HasValue) throw new ApplicationException();
-                    foreach (var combination in usage.CurrentMethod.GetParameters().GetAllCombinations(TestValues))
-                        invocation.Value(combination.ToArray());
+                    var methodInfo = usage.ResolvedMember as MethodInfo;
+                    if (methodInfo != null &&
+                        (methodInfo.IsGenericMethod && new[] {
+                            readMethod, readMethod2, queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod,
+                            deleteQueryMethod, pagedQueriesMethod, pagedQueryMethod
+                        }.Contains(methodInfo.GetGenericMethodDefinition()) ||
+                         methodInfo == nonQueryMethod))
+                    {
+                        var currentMethod = usage.CurrentMethod as MethodInfo;
+                        if (currentMethod != null && currentMethod.IsGenericMethod && new[] {
+                            pagedQueriesMethod, pagedQueryMethod
+                        }.Contains(currentMethod.GetGenericMethodDefinition()))
+                            continue;
+                        var invocation = usage.CurrentMethod.GetStaticInvocation();
+                        if (!invocation.HasValue) throw new ApplicationException();
+                        foreach (var combination in usage.CurrentMethod.GetParameters().GetAllCombinations(TestValues))
+                            invocation.Value(combination.ToArray());
+                    }
                 }
-            }
+                {
+                    var methodInfo = typeof (Program).GetMethod(nameof(ReadPosts));
+                    foreach (var combination in methodInfo.GetParameters().GetAllCombinations(parameterInfo => {
+                        if (parameterInfo.Name == "date") return new object[] {new DateTime?(), new DateTime(2001, 1, 1),};
+                        throw new ApplicationException();
+                    }))
+                    {
+                        methodInfo.Invoke(null, combination.ToArray());
+                    }
+                }
+            });
         }
 
         private static IEnumerable<object> TestValues(ParameterInfo parameterInfo)
@@ -150,16 +161,17 @@ namespace Foo.Tests
 
         private static readonly MethodInfo pagedQueryMethod = typeof(FooSqlUtil).GetMethod(nameof(PagedQuery));
 
-        [TestMethod]
-        public void ExplicitTest()
+        private static void UsingQueryChecker(IQueryChecker queryChecker, Action action)
         {
-            var methodInfo = typeof (Program).GetMethod(nameof(ReadPosts));
-            foreach (var combination in methodInfo.GetParameters().GetAllCombinations(parameterInfo => {
-                if (parameterInfo.Name == "date") return new object[] {new DateTime?(), new DateTime(2001, 1, 1),};
-                throw new ApplicationException();
-            }))
+            var original = SqlUtil.QueryChecker;
+            SqlUtil.QueryChecker = queryChecker;
+            try
             {
-                methodInfo.Invoke(null, combination.ToArray());
+                action();
+            }
+            finally
+            {
+                SqlUtil.QueryChecker = original;
             }
         }
     }

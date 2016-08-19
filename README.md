@@ -1,5 +1,5 @@
 # QueryLifting
-The [test](Foo.Tests/QueryTests.cs#L25) 
+The [test](Foo.Tests/QueryTests.cs#L24) 
 [executes](Foo.Tests/QueryChecker.cs#L19)
 the SQL queries in SchemaOnly mode. 
 The test checks the match of 
@@ -9,16 +9,16 @@ If there is no match then the test
 [writes to console](Foo.Tests/QueryChecker.cs#L92-L96)
 the code for correct data retrieving.
 
-The [general test](Foo.Tests/QueryTests.cs#L25)
+The [general test](Foo.Tests/QueryTests.cs#L24)
 [finds](QueryLifting/UsageResolver.cs#L14) and calls 
 all the methods where a method of
 [specified set](Foo.Tests/QueryTests.cs#L32-L33)
 is invoked.
 You can explicitly specify
-the [test method](Foo.Tests/QueryTests.cs#L156).
+the [test method](Foo.Tests/QueryTests.cs#L49).
 
 Test values of parameters are specified in the method
-[TestValues](Foo.Tests/QueryTests.cs#L52-L108).
+[TestValues](Foo.Tests/QueryTests.cs#L63-L119).
 The test iterates through
 [all combinations of test values](QueryLifting/EnumerableExtensions.cs#L9).
 All possible values are listed for the types 
@@ -32,7 +32,7 @@ etc.
 If the building of the query depends on these types only then all versions of the query will be tested.
 
 You can explicitly specify 
-the [test values for the particular parameter](Foo.Tests/QueryTests.cs#L158).
+the [test values for the particular parameter](Foo.Tests/QueryTests.cs#L51).
 
 The [test method](Foo/Program.cs#L38-L46) 
 may be [anonymous](QueryLifting/Func.cs#L7)

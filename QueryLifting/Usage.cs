@@ -5,12 +5,12 @@ namespace QueryLifting
     public class Usage
     {
         public MethodBase CurrentMethod { get; }
-        public MemberInfo ResolveMember { get; }
+        public MemberInfo ResolvedMember { get; }
 
-        public Usage(MethodBase currentMethod, MemberInfo resolveMember)
+        public Usage(MethodBase currentMethod, MemberInfo resolvedMember)
         {
             CurrentMethod = currentMethod;
-            ResolveMember = resolveMember;
+            ResolvedMember = resolvedMember;
         }
     }
 }

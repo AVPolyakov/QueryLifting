@@ -22,7 +22,7 @@ namespace QueryLifting
         {
         }
 
-        public class Choice1 : Choice<T1, T2>
+        public sealed class Choice1 : Choice<T1, T2>
         {
             private readonly T1 value;
 
@@ -37,7 +37,7 @@ namespace QueryLifting
             }
         }
 
-        public class Choice2 : Choice<T1, T2>
+        public sealed class Choice2 : Choice<T1, T2>
         {
             private readonly T2 value;
 

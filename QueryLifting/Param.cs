@@ -12,9 +12,6 @@ namespace QueryLifting
 
     public static class ParamExtensions
     {
-        public static Param<T> Param<T>(this T it)
-        {
-            return new Param<T>(it);
-        }
+        public static Param<T> Param<T>(this T it) => new Param<T>(it);
     }
 }

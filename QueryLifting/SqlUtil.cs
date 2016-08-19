@@ -15,40 +15,25 @@ namespace QueryLifting
     public static class SqlUtil
     {
         public static Query<T> Query<T>(this SqlCommand command, Func<SqlDataReader, T> readerFunc, Option<string> connectionString = new Option<string>())
-        {
-            return new Query<T>(command, readerFunc, connectionString);
-        }
+            => new Query<T>(command, readerFunc, connectionString);
 
         public static NonQuery NonQuery(this SqlCommand command, Option<string> connectionString = new Option<string>())
-        {
-            return new NonQuery(command, connectionString);
-        }
+            => new NonQuery(command, connectionString);
 
         public static IEnumerable<T> Read<T>(this SqlCommand command, Func<SqlDataReader, T> materializer,
             Option<string> connectionString = new Option<string>())
-        {
-            return command.Query(reader => reader.Read(() => materializer(reader)), connectionString).Read();
-        }
+            => command.Query(reader => reader.Read(() => materializer(reader)), connectionString).Read();
 
         public static IEnumerable<T> Read<T>(this SqlCommand command, Option<string> connectionString = new Option<string>())
-        {
-            return command.Query<T>(connectionString).Read();
-        }
+            => command.Query<T>(connectionString).Read();
 
         public static Query<IEnumerable<T>> Query<T>(this SqlCommand command, Option<string> connectionString = new Option<string>())
-        {
-            return command.Query(Read<T>, connectionString);
-        }
+            => command.Query(Read<T>, connectionString);
 
-        public static IEnumerable<T> Read<T>(this SqlDataReader reader)
-        {
-            return Read(reader, reader.GetMaterializer<T>());
-        }
+        public static IEnumerable<T> Read<T>(this SqlDataReader reader) => Read(reader, reader.GetMaterializer<T>());
 
         public static IEnumerable<T> Read<T>(this SqlDataReader reader, Func<T> materializer)
-        {
-            return QueryChecker != null ? QueryChecker.Read(reader, materializer) : GetEnumerable(reader, materializer);
-        }
+            => QueryChecker != null ? QueryChecker.Read(reader, materializer) : GetEnumerable(reader, materializer);
 
         private static IEnumerable<T> GetEnumerable<T>(SqlDataReader reader, Func<T> materializer)
         {
@@ -90,86 +75,59 @@ namespace QueryLifting
         }
 
         public static int Int32(this SqlDataReader reader, int ordinal)
-        {
-            return QueryChecker != null ? QueryChecker.Check<int>(reader, ordinal) : reader.GetInt32(ordinal);
-        }
+            => QueryChecker != null ? QueryChecker.Check<int>(reader, ordinal) : reader.GetInt32(ordinal);
 
         public static Option<int> OptionInt32(this SqlDataReader reader, int ordinal)
-        {
-            return QueryChecker != null 
-                ? QueryChecker.Check<Option<int>>(reader, ordinal) 
+            => QueryChecker != null
+                ? QueryChecker.Check<Option<int>>(reader, ordinal)
                 : (reader.IsDBNull(ordinal) ? new Option<int>() : reader.GetInt32(ordinal));
-        }
 
         public static decimal Decimal(this SqlDataReader reader, int ordinal)
-        {
-            return QueryChecker != null ? QueryChecker.Check<decimal>(reader, ordinal) : reader.GetDecimal(ordinal);
-        }
+            => QueryChecker != null ? QueryChecker.Check<decimal>(reader, ordinal) : reader.GetDecimal(ordinal);
 
         public static Option<decimal> OptionDecimal(this SqlDataReader reader, int ordinal)
-        {
-            return QueryChecker != null 
-                ? QueryChecker.Check<Option<decimal>>(reader, ordinal) 
+            => QueryChecker != null
+                ? QueryChecker.Check<Option<decimal>>(reader, ordinal)
                 : (reader.IsDBNull(ordinal) ? new Option<decimal>() : reader.GetDecimal(ordinal));
-        }
 
         public static Guid Guid(this SqlDataReader reader, int ordinal)
-        {
-            return QueryChecker != null ? QueryChecker.Check<Guid>(reader, ordinal) : reader.GetGuid(ordinal);
-        }
+            => QueryChecker != null ? QueryChecker.Check<Guid>(reader, ordinal) : reader.GetGuid(ordinal);
 
         public static Option<Guid> OptionGuid(this SqlDataReader reader, int ordinal)
-        {
-            return QueryChecker != null 
-                ? QueryChecker.Check<Option<Guid>>(reader, ordinal) 
+            => QueryChecker != null
+                ? QueryChecker.Check<Option<Guid>>(reader, ordinal)
                 : (reader.IsDBNull(ordinal) ? new Option<Guid>() : reader.GetGuid(ordinal));
-        }
 
         public static DateTime DateTime(this SqlDataReader reader, int ordinal)
-        {
-            return QueryChecker != null ? QueryChecker.Check<DateTime>(reader, ordinal) : reader.GetDateTime(ordinal);
-        }
+            => QueryChecker != null ? QueryChecker.Check<DateTime>(reader, ordinal) : reader.GetDateTime(ordinal);
 
         public static Option<DateTime> OptionDateTime(this SqlDataReader reader, int ordinal)
-        {
-            return QueryChecker != null 
-                ? QueryChecker.Check<Option<DateTime>>(reader, ordinal) 
+            => QueryChecker != null
+                ? QueryChecker.Check<Option<DateTime>>(reader, ordinal)
                 : (reader.IsDBNull(ordinal) ? new Option<DateTime>() : reader.GetDateTime(ordinal));
-        }
 
         public static string String(this SqlDataReader reader, int ordinal)
-        {
-            return QueryChecker != null ? QueryChecker.Check<string>(reader, ordinal) : reader.GetString(ordinal);
-        }
+            => QueryChecker != null ? QueryChecker.Check<string>(reader, ordinal) : reader.GetString(ordinal);
 
         public static Option<string> OptionString(this SqlDataReader reader, int ordinal)
-        {
-            return QueryChecker != null 
-                ? QueryChecker.Check<Option<string>>(reader, ordinal) 
+            => QueryChecker != null
+                ? QueryChecker.Check<Option<string>>(reader, ordinal)
                 : (reader.IsDBNull(ordinal) ? new Option<string>() : reader.GetString(ordinal));
-        }
 
         public static bool Boolean(this SqlDataReader reader, int ordinal)
-        {
-            return QueryChecker != null ? QueryChecker.Check<bool>(reader, ordinal) : reader.GetBoolean(ordinal);
-        }
+            => QueryChecker != null ? QueryChecker.Check<bool>(reader, ordinal) : reader.GetBoolean(ordinal);
 
         public static Option<bool> OptionBoolean(this SqlDataReader reader, int ordinal)
-        {
-            return QueryChecker != null 
-                ? QueryChecker.Check<Option<bool>>(reader, ordinal) 
+            => QueryChecker != null
+                ? QueryChecker.Check<Option<bool>>(reader, ordinal)
                 : (reader.IsDBNull(ordinal) ? new Option<bool>() : reader.GetBoolean(ordinal));
-        }
 
         /// <summary>
         /// Generates in runtime the code to retrieve the data from DataReader for all properties of type T.
         /// Returns the function that creates the instance of type T and populates the instance properties 
         /// from DataReader.
         /// </summary>
-        public static Func<T> GetMaterializer<T>(this SqlDataReader reader)
-        {
-            return Cache<T>.Func(reader);
-        }
+        public static Func<T> GetMaterializer<T>(this SqlDataReader reader) => Cache<T>.Func(reader);
 
         public static readonly Dictionary<Type, MethodInfo> MethodInfos = new[] {
             GetMethodInfo<Func<SqlDataReader, int, int>>((reader, i) => reader.Int32(i)),
@@ -261,9 +219,7 @@ namespace QueryLifting
         }
 
         public static int Ordinal(this SqlDataReader reader, string name)
-        {
-            return QueryChecker != null ? QueryChecker.GetOrdinal(reader, name) : reader.GetOrdinal(name);
-        }
+            => QueryChecker != null ? QueryChecker.GetOrdinal(reader, name) : reader.GetOrdinal(name);
 
         private static readonly ModuleBuilder moduleBuilder;
 
@@ -282,52 +238,36 @@ namespace QueryLifting
         public static IQueryChecker QueryChecker { get; set; }
 
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, int? value)
-        {
-            return value.HasValue
+            => value.HasValue
                 ? command.AddParam(parameterName, value.Value)
                 : command.Parameters.Add(new SqlParameter(parameterName, SqlDbType.Int) {Value = DBNull.Value});
-        }
 
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, int value)
-        {
-            return command.Parameters.AddWithValue(parameterName, value);
-        }
+            => command.Parameters.AddWithValue(parameterName, value);
 
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, decimal? value)
-        {
-            return value.HasValue
+            => value.HasValue
                 ? command.AddParam(parameterName, value.Value)
                 : command.Parameters.Add(new SqlParameter(parameterName, SqlDbType.Decimal) {Value = DBNull.Value});
-        }
 
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, Guid value)
-        {
-            return command.Parameters.AddWithValue(parameterName, value);
-        }
+            => command.Parameters.AddWithValue(parameterName, value);
 
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, Guid? value)
-        {
-            return value.HasValue
+            => value.HasValue
                 ? command.AddParam(parameterName, value.Value)
                 : command.Parameters.Add(new SqlParameter(parameterName, SqlDbType.UniqueIdentifier) {Value = DBNull.Value});
-        }
 
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, decimal value)
-        {
-            return command.Parameters.AddWithValue(parameterName, value);
-        }
+            => command.Parameters.AddWithValue(parameterName, value);
 
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, DateTime? value)
-        {
-            return value.HasValue
+            => value.HasValue
                 ? command.AddParam(parameterName, value.Value)
                 : command.Parameters.Add(new SqlParameter(parameterName, SqlDbType.DateTime) {Value = DBNull.Value});
-        }
 
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, DateTime value)
-        {
-            return command.Parameters.AddWithValue(parameterName, value);
-        }
+            => command.Parameters.AddWithValue(parameterName, value);
 
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, string value)
         {
@@ -339,9 +279,7 @@ namespace QueryLifting
         }
 
         public static SqlParameter AddParam<T>(this SqlCommand command, string parameterName, Param<T> param)
-        {
-            return ParamCache<T>.Func(command, parameterName, param.Value);
-        }
+            => ParamCache<T>.Func(command, parameterName, param.Value);
 
         private static class ParamCache<T>
         {
@@ -428,10 +366,8 @@ namespace QueryLifting
             return builder;
         }
 
-        public static MethodInfo GetMethodInfo<T>(Expression<T> expression)
-        {
-            return ((MethodCallExpression)expression.Body).Method;
-        }
+        public static MethodInfo GetMethodInfo<T>(Expression<T> expression) 
+            => ((MethodCallExpression) expression.Body).Method;
 
         public static bool IsAnonymousType(this Type type)
         {
