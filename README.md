@@ -15,14 +15,14 @@ all the methods where a method of
 [specified set](Foo.Tests/QueryTests.cs#L32-L33)
 is invoked.
 You can explicitly specify
-the [test method](Foo.Tests/QueryTests.cs#L140).
+the [test method](Foo.Tests/QueryTests.cs#L137).
 
 Test values of parameters are specified in the method
 [TestValues](Foo.Tests/QueryTests.cs#L52-L85).
 The test iterates through
 [all combinations of test values](QueryLifting/EnumerableExtensions.cs#L9).
 You can explicitly specify 
-the [test values for the particular parameter](Foo.Tests/QueryTests.cs#L142).
+the [test values for the particular parameter](Foo.Tests/QueryTests.cs#L139).
 
 The [test method](Foo/Program.cs#L38-L46) 
 may be [anonymous](QueryLifting/Func.cs#L7)

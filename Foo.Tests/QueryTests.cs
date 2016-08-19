@@ -118,14 +118,11 @@ namespace Foo.Tests
         private static readonly MethodInfo queryMethod2 = GetMethodInfo<Func<SqlCommand, string, Func<SqlDataReader, object>, Query<IEnumerable<object>>>>(
             (command, connectionString, func) => command.Query<object>(connectionString)).GetGenericMethodDefinition();
 
-        private static readonly MethodInfo insertQueryMethod = GetMethodInfo<Func<object, string, object, Option<string>, Query<IEnumerable<object>>>>(
-            (prototype, table, p, connectionString) => InsertQuery(prototype, table, p, connectionString)).GetGenericMethodDefinition();
+        private static readonly MethodInfo insertQueryMethod = typeof(SqlUtil).GetMethod(nameof(InsertQuery));
 
-        private static readonly MethodInfo updateQueryMethod = GetMethodInfo<Func<string, object, Option<string>, NonQuery>>(
-            (table, p, connectionString) => UpdateQuery(table, p, connectionString)).GetGenericMethodDefinition();
+        private static readonly MethodInfo updateQueryMethod = typeof(SqlUtil).GetMethod(nameof(UpdateQuery));
 
-        private static readonly MethodInfo deleteQueryMethod = GetMethodInfo<Func<string, object, Option<string>, NonQuery>>(
-            (table, p, connectionString) => DeleteQuery(table, p, connectionString)).GetGenericMethodDefinition();
+        private static readonly MethodInfo deleteQueryMethod = typeof(SqlUtil).GetMethod(nameof(DeleteQuery));
 
         private static readonly MethodInfo nonQueryMethod = GetMethodInfo<Action<SqlCommand, string>>(
             (command, connectionString) => command.NonQuery(connectionString));
