@@ -137,17 +137,14 @@ namespace Foo.Tests
         [TestMethod]
         public void ExplicitTest()
         {
-            TestQuery(typeof (Program), nameof(ReadPosts), parameterInfo => {
+            var methodInfo = typeof (Program).GetMethod(nameof(ReadPosts));
+            foreach (var combination in methodInfo.GetParameters().GetAllCombinations(parameterInfo => {
                 if (parameterInfo.Name == "date") return new object[] {new DateTime?(), new DateTime(2001, 1, 1),};
                 throw new ApplicationException();
-            });
-        }
-
-        private static void TestQuery(Type type, string methodName, Func<ParameterInfo, IEnumerable<object>> testValues)
-        {
-            var methodInfo = type.GetMethod(methodName);
-            foreach (var combination in methodInfo.GetParameters().GetAllCombinations(testValues))
+            }))
+            {
                 methodInfo.Invoke(null, combination.ToArray());
+            }
         }
     }
 }
