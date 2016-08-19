@@ -161,6 +161,11 @@ namespace QueryLifting
                 : (reader.IsDBNull(ordinal) ? new Option<bool>() : reader.GetBoolean(ordinal));
         }
 
+        /// <summary>
+        /// Generates in runtime the code to retrieve the data from DataReader for all properties of type T.
+        /// Returns the function that creates the instance of type T and populates the instance properties 
+        /// from DataReader.
+        /// </summary>
         public static Func<T> GetMaterializer<T>(this SqlDataReader reader)
         {
             return Cache<T>.Func(reader);
