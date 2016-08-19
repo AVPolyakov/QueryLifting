@@ -55,56 +55,75 @@ namespace Foo.Tests
             if (type == typeof (decimal)) return new object[] {0m};
             if (type == typeof (Guid)) return new object[] {default(Guid)};
             if (type == typeof (DateTime)) return new object[] {new DateTime(2001, 1, 1)};
+            if (type == typeof (bool)) return new object[] {true, false};
             if (type.IsEnum) return Enum.GetValues(type).Cast<object>();
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Nullable<>))
-                return new[] {
-                    GetMethodInfo<Func<int?>>(() => CreateNullable<int>()),
-                    GetMethodInfo<Func<int, int?>>(_ => CreateNullable(_))
-                }.SelectMany(prototypeMethod => {
-                    var method = prototypeMethod.GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
-                    return method.GetParameters().GetAllCombinations(TestValues)
-                        .Select(args => method.Invoke(null, args.ToArray()));
-                });
             if (type.IsAnonymousType())
                 return type.GetConstructors(UsageResolver.AllBindingFlags)
                     .SelectMany(constructorInfo => constructorInfo.GetParameters().GetAllCombinations(TestValues)
                         .Select(args => constructorInfo.Invoke(args.ToArray())));
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Func<>))
+            if (type.IsGenericType)
             {
-                var method = GetMethodInfo<Func<int, Func<int>>>(_ => CreateFunc(_))
-                    .GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
-                return method.GetParameters().GetAllCombinations(TestValues)
-                    .Select(args => method.Invoke(null, args.ToArray()));
-            }
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Param<>))
-            {
-                var method = GetMethodInfo<Func<object, Param<object>>>(_ => CreateParam(_))
-                    .GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
-                var args = method.GetParameters().Select(parameter => TestValues(parameter).First()).ToArray();
-                return new[] {method.Invoke(null, args)};
+                var genericType = type.GetGenericTypeDefinition();
+                if (genericType == typeof (Nullable<>))
+                    return new[] {
+                        GetMethodInfo<Func<int?>>(() => CreateNullable<int>()),
+                        GetMethodInfo<Func<int, int?>>(_ => CreateNullable(_))
+                    }.SelectMany(prototypeMethod => {
+                        var method = prototypeMethod.GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
+                        return method.GetParameters().GetAllCombinations(TestValues)
+                            .Select(args => method.Invoke(null, args.ToArray()));
+                    });
+                if (genericType == typeof (Option<>))
+                    return new[] {
+                        GetMethodInfo<Func<Option<int>>>(() => CreateOption<int>()),
+                        GetMethodInfo<Func<int, Option<int>>>(_ => CreateOption(_))
+                    }.SelectMany(prototypeMethod => {
+                        var method = prototypeMethod.GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
+                        return method.GetParameters().GetAllCombinations(TestValues)
+                            .Select(args => method.Invoke(null, args.ToArray()));
+                    });
+                if (genericType == typeof (Choice<,>))
+                    return new[] {
+                        GetMethodInfo<Func<object, Choice<object, object>>>(_ => Choice1<object, object>(_)),
+                        GetMethodInfo<Func<object, Choice<object, object>>>(_ => Choice2<object, object>(_))
+                    }.SelectMany(prototypeMethod => {
+                        var method = prototypeMethod.GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
+                        return method.GetParameters().GetAllCombinations(TestValues)
+                            .Select(args => method.Invoke(null, args.ToArray()));
+                    });
+                if (genericType == typeof (Func<>))
+                {
+                    var method = GetMethodInfo<Func<int, Func<int>>>(_ => CreateFunc(_))
+                        .GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
+                    return method.GetParameters().GetAllCombinations(TestValues)
+                        .Select(args => method.Invoke(null, args.ToArray()));
+                }
+                if (genericType == typeof (Param<>))
+                {
+                    var method = GetMethodInfo<Func<object, Param<object>>>(_ => CreateParam(_))
+                        .GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
+                    var args = method.GetParameters().Select(parameter => TestValues(parameter).First()).ToArray();
+                    return new[] {method.Invoke(null, args)};
+                }
             }
             throw new ApplicationException();
         }
 
-        private static T? CreateNullable<T>(T arg) where T : struct
-        {
-            return arg;
-        }
+        private static T? CreateNullable<T>(T arg) where T : struct => arg;
 
-        private static T? CreateNullable<T>() where T : struct
-        {
-            return new T?();
-        }
+        private static T? CreateNullable<T>() where T : struct => new T?();
 
-        private static Param<T> CreateParam<T>(T value)
-        {
-            return value.Param();
-        }
+        private static Option<T> CreateOption<T>(T arg) => arg;
 
-        private static Func<T> CreateFunc<T>(T arg)
-        {
-            return () => arg;
-        }
+        private static Option<T> CreateOption<T>() => new Option<T>();
+
+        private static Choice<T1, T2> Choice1<T1, T2>(T1 arg) => arg;
+
+        private static Choice<T1, T2> Choice2<T1, T2>(T2 arg) => arg;
+
+        private static Param<T> CreateParam<T>(T value) => value.Param();
+
+        private static Func<T> CreateFunc<T>(T arg) => () => arg;
 
         private static readonly MethodInfo readMethod = GetMethodInfo<Func<SqlCommand, string, IEnumerable<object>>>(
             (command, connectionString) => command.Read<object>(connectionString)).GetGenericMethodDefinition();

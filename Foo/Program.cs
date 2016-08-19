@@ -137,6 +137,44 @@ WHERE 1 = 1");
             Console.WriteLine($"{paggingInfo.Count}");
         }
 
+        private static void OptionExample(Option<DateTime> date)
+        {
+            foreach (var record in new {date}.Apply(p => {
+                var command = new SqlCommand();
+                var builder = new StringBuilder(@"
+SELECT PostId, Text,  CreationDate
+FROM Post
+WHERE 1 = 1");
+                if (p.date.HasValue) builder.Append(command, @"
+    AND CreationDate > @date", new {date = p.date.Value});
+                command.CommandText = builder.ToString();
+                return command.Read<A001>();
+            }))
+            {
+                Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
+            }
+        }
+
+        private static void ChoiceExample(Choice<string, DateTime> textOrDate)
+        {
+            foreach (var record in new {textOrDate}.Apply(p => {
+                var command = new SqlCommand();
+                var builder = new StringBuilder(@"
+SELECT PostId, Text,  CreationDate
+FROM Post
+WHERE 1 = 1");
+                p.textOrDate.Match(text => builder.Append(command, @"
+    AND Text LIKE @text", new {text = $"%{text}%"}),
+                    date => builder.Append(command, @"
+    AND CreationDate > @date", new {date}));
+                command.CommandText = builder.ToString();
+                return command.Read<A001>();
+            }))
+            {
+                Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
+            }
+        }
+
         private static void FuncExample()
         {
             foreach (var record in new {date = Func.New(() => DateTime.Now)}.Apply(p => new SqlCommand(@"
@@ -166,8 +204,10 @@ WHERE CreationDate > @date").AddParams(new {date = p.date()}).Read<A001>()))
             ParamExample();
             PaggingByTwoQueries(new DateTime(2015, 1, 1), 1, 1);
             PaggingByOneQuery(new DateTime(2015, 1, 1), 1, 1);
+            OptionExample(new DateTime(2015, 1, 1));
             FuncExample();
             MyEnumExample();
+            ChoiceExample("qwe");
         }
 
         public static void Init()
