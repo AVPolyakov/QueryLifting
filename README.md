@@ -6,7 +6,7 @@ The test checks match of
 the [names and types of query columns](Foo/Program.cs#L20)
 and the [calls of DataReader methods](Foo/Program.cs#L27-L29). 
 If there is no match then the test 
-[writes to console](Foo.Tests/QueryChecker.cs#L94-L98)
+[writes to console](Foo.Tests/QueryChecker.cs#L92-L96)
 the code for correct data retrieving.
 
 The [general test](Foo.Tests/QueryTests.cs#L25)

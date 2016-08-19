@@ -12,7 +12,7 @@ namespace Foo
 {
     public class Program
     {
-        private static void M1(DateTime? date)
+        private static void DataReaderExample(DateTime? date)
         {
             new {date}.Apply(p => {
                 var command = new SqlCommand();
@@ -32,7 +32,7 @@ WHERE 1 = 1");
             }).ToList();
         }
 
-        private static void M2(DateTime? date)
+        private static void PostExample(DateTime? date)
         {
             foreach (var record in new {date}.Apply(p => {
                 var command = new SqlCommand();
@@ -50,7 +50,7 @@ WHERE 1 = 1");
             }
         }
 
-        private static void M3()
+        private static void InsertUpdateDelete()
         {
             var id = new {Text = "Test", CreationDate = DateTime.Now}.Apply(p =>
                 InsertQuery(default(int), "Post", p)).Read().Single();
@@ -78,7 +78,7 @@ WHERE 1 = 1");
             }
         }
 
-        private static void M4(DateTime? date)
+        private static void NamedMethod(DateTime? date)
         {
             foreach (var record in ReadPosts(date))
                 Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
@@ -97,13 +97,13 @@ WHERE 1 = 1");
             return command.Read<A001>();
         }
 
-        private static void M5()
+        private static void ParamExample()
         {
             new {C1 = new DateTime?().Param()}.Apply(p =>
                 new SqlCommand("INSERT T001 (C1) VALUES (@C1)").AddParams(p).NonQuery());
         }
 
-        private static void M6(DateTime? date, int offset, int pageSize)
+        private static void PaggingByTwoQueries(DateTime? date, int offset, int pageSize)
         {
             var paggingInfo = new {date, offset, pageSize}.Apply(p => PagedQueries<A001>(
                 (builder, command) => {
@@ -120,7 +120,7 @@ WHERE 1 = 1");
             Console.WriteLine($"{paggingInfo.Count.Read()}");
         }
 
-        private static void M7(DateTime? date, int offset, int pageSize)
+        private static void PaggingByOneQuery(DateTime? date, int offset, int pageSize)
         {
             var paggingInfo = new {date, offset, pageSize}.Apply(p => PagedQuery<A001>(
                 (builder, command) => {
@@ -137,7 +137,7 @@ WHERE 1 = 1");
             Console.WriteLine($"{paggingInfo.Count}");
         }
 
-        private static void M8()
+        private static void FuncExample()
         {
             foreach (var record in new {date = Func.New(() => DateTime.Now)}.Apply(p => new SqlCommand(@"
 SELECT PostId, Text,  CreationDate
@@ -148,7 +148,7 @@ WHERE CreationDate > @date").AddParams(new {date = p.date()}).Read<A001>()))
             }
         }
 
-        private static void M9()
+        private static void MyEnumExample()
         {
             var single = new {a = MyEnum.A}
                 .Apply(p => new SqlCommand(@"SELECT @a AS a").AddParams(p).Read<Option<MyEnum>>()).Single();
@@ -159,15 +159,15 @@ WHERE CreationDate > @date").AddParams(new {date = p.date()}).Read<A001>()))
         {
             Init();
 
-            M1(new DateTime(2015, 1, 1));
-            M2(new DateTime(2015, 1, 1));
-            M3();
-            M4(new DateTime(2015, 1, 1));
-            M5();
-            M6(new DateTime(2015, 1, 1), 1, 1);
-            M7(new DateTime(2015, 1, 1), 1, 1);
-            M8();
-            M9();
+            DataReaderExample(new DateTime(2015, 1, 1));
+            PostExample(new DateTime(2015, 1, 1));
+            InsertUpdateDelete();
+            NamedMethod(new DateTime(2015, 1, 1));
+            ParamExample();
+            PaggingByTwoQueries(new DateTime(2015, 1, 1), 1, 1);
+            PaggingByOneQuery(new DateTime(2015, 1, 1), 1, 1);
+            FuncExample();
+            MyEnumExample();
         }
 
         public static void Init()

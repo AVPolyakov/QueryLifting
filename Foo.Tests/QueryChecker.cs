@@ -70,17 +70,15 @@ namespace Foo.Tests
 
         public int GetOrdinal(SqlDataReader reader, string name)
         {
-            int ordinal;
             try
             {
-                ordinal = reader.GetOrdinal(name);
+                return reader.GetOrdinal(name);
             }
-            catch (Exception)
+            catch (IndexOutOfRangeException)
             {
                 WriteDataRetrievingCode(reader);
                 throw;
             }
-            return ordinal;
         }
 
         private static bool TypesAreCompatible(Type dbType, Type type)
