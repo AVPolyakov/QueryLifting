@@ -10,8 +10,16 @@ namespace Foo.Tests
 {
     internal class QueryChecker : IQueryChecker
     {
+        private readonly Action<SqlCommand, Option<string>> onQuery;
+
+        public QueryChecker(Action<SqlCommand, Option<string>> onQuery)
+        {
+            this.onQuery = onQuery;
+        }
+
         public void Query<T>(Query<T> query)
         {
+            onQuery(query.Command, query.ConnectionString);
             using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, SqlUtil.ConnectionStringFunc)))
             {
                 query.Command.Connection = connection;
@@ -105,6 +113,7 @@ namespace Foo.Tests
 
         public void NonQuery(NonQuery query)
         {
+            onQuery(query.Command, query.ConnectionString);
             using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, SqlUtil.ConnectionStringFunc)))
                 if (query.Command.CommandType == CommandType.StoredProcedure)
                 {

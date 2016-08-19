@@ -1,8 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using QueryLifting;
 using static Foo.FooSqlUtil;
@@ -23,7 +27,12 @@ namespace Foo.Tests
         [TestMethod]
         public void TestQueries()
         {
-            UsingQueryChecker(new QueryChecker(), () => {
+            TestQueries(delegate { }, delegate { });
+        }
+
+        private void TestQueries(Action<SqlCommand, Option<string>> onQuery, Action<MethodBase> methodSetter)
+        {
+            UsingQueryChecker(new QueryChecker(onQuery), () => {
                 foreach (var usage in new[] {typeof (Program)}.SelectMany(_ => _.Assembly.GetTypes()).ResolveUsages())
                 {
                     var methodInfo = usage.ResolvedMember as MethodInfo;
@@ -42,7 +51,8 @@ namespace Foo.Tests
                         var invocation = usage.CurrentMethod.GetStaticInvocation();
                         if (!invocation.HasValue) throw new ApplicationException();
                         foreach (var combination in usage.CurrentMethod.GetParameters().GetAllCombinations(TestValues))
-                            invocation.Value(combination.ToArray());
+                            UsingMethod(methodSetter, usage.CurrentMethod,
+                                () => invocation.Value(combination.ToArray()));
                     }
                 }
                 {
@@ -51,9 +61,8 @@ namespace Foo.Tests
                         if (parameterInfo.Name == "date") return new object[] {new DateTime?(), new DateTime(2001, 1, 1),};
                         throw new ApplicationException();
                     }))
-                    {
-                        methodInfo.Invoke(null, combination.ToArray());
-                    }
+                        UsingMethod(methodSetter, methodInfo,
+                            () => methodInfo.Invoke(null, combination.ToArray()));
                 }
             });
         }
@@ -163,7 +172,6 @@ namespace Foo.Tests
 
         private static void UsingQueryChecker(IQueryChecker queryChecker, Action action)
         {
-            var original = SqlUtil.QueryChecker;
             SqlUtil.QueryChecker = queryChecker;
             try
             {
@@ -171,8 +179,164 @@ namespace Foo.Tests
             }
             finally
             {
-                SqlUtil.QueryChecker = original;
+                SqlUtil.QueryChecker = null;
             }
         }
+
+        private static void UsingMethod(Action<MethodBase> methodSetter, MethodBase method, Action action)
+        {
+            methodSetter(method);
+            try
+            {
+                action();
+            }
+            finally
+            {
+                methodSetter(null);
+            }
+        }
+
+        [TestMethod]
+        public void FindUsages()
+        {
+            MethodBase currentMethod = null;
+            var queries = new Dictionary<Tuple<string, int, int>, HashSet<Tuple<string, string>>>();
+            TestQueries((command, connectionString) => {
+                if (command.CommandType == CommandType.StoredProcedure) return;
+                var stackTrace = new StackTrace(true);
+                for (var i = 0; ; i++)
+                {
+                    var frame = stackTrace.GetFrame(i);
+                    if (frame.GetMethod() == currentMethod)
+                    {
+                        var line = frame.GetFileLineNumber();
+                        var column = frame.GetFileColumnNumber();
+                        var file = frame.GetFileName();
+                        var key = Tuple.Create(file, line, column);
+                        HashSet<Tuple<string, string>> hashSet;
+                        if (!queries.TryGetValue(key, out hashSet))
+                        {
+                            hashSet = new HashSet<Tuple<string, string>>();
+                            queries.Add(key, hashSet);
+                        }
+                        var paramClause = string.Join(",", command.Parameters.Cast<SqlParameter>()
+                            .Select(_ => $"{_.ParameterName} {GetSqlTypeString(_)}"));
+                        hashSet.Add(Tuple.Create($@"
+{paramClause}
+AS 
+    BEGIN
+{command.CommandText}
+    END",
+                            connectionString.Match(_ => _, ConnectionStringFunc)));
+                        break;
+                    }
+                }
+            }, method => currentMethod = method);
+            foreach (var usage in FindUsages(queries, tableName: "Post", columnName: "CreationDate"))
+            {
+                var file = Path.GetFileName(usage.Item1);
+                Console.WriteLine($"{file}, Ln {usage.Item2}, Col {usage.Item3}");
+            }
+        }
+
+        private static IEnumerable<Tuple<string, int, int>> FindUsages(
+            Dictionary<Tuple<string, int, int>, HashSet<Tuple<string, string>>> queries,
+            string tableName, Option<string> columnName = new Option<string>())
+        {
+            var prefix = Guid.NewGuid().ToString("N");
+            foreach (var query in queries)
+                foreach (var tuple in query.Value)
+                {
+                    object result;
+                    using (var connection = new SqlConnection(tuple.Item2))
+                    {
+                        connection.Open();
+                        DropProcedure(connection, prefix);
+                        using (var command = new SqlCommand())
+                        {
+                            command.Connection = connection;
+                            command.CommandText = $@"
+CREATE PROCEDURE {QueryLiftingTemp}{prefix}
+{tuple.Item1}";
+                            command.ExecuteNonQuery();
+                        }
+                        using (var command = new SqlCommand())
+                        {
+                            command.Connection = connection;
+                            var builder = new StringBuilder();
+                            builder.AppendFormat($@"
+SELECT  1
+FROM    sys.dm_sql_referenced_entities('dbo.{QueryLiftingTemp}{prefix}', 'OBJECT')
+WHERE   referenced_entity_name = @referenced_entity_name");
+                            if (columnName.HasValue)
+                            {
+                                builder.Append(@"
+        AND referenced_minor_name = @referenced_minor_name");
+                                command.Parameters.Add(new SqlParameter {
+                                    SqlDbType = SqlDbType.NVarChar,
+                                    Size = -1,
+                                    ParameterName = "@referenced_minor_name",
+                                    Value = columnName.Value
+                                });
+                            }
+                            else builder.Append(@"
+        AND referenced_minor_name IS NULL");
+                            command.Parameters.Add(new SqlParameter {
+                                SqlDbType = SqlDbType.NVarChar,
+                                Size = -1,
+                                ParameterName = "@referenced_entity_name",
+                                Value = tableName
+                            });
+                            command.CommandText = builder.ToString();
+                            result = command.ExecuteScalar();
+                        }
+                        DropProcedure(connection, prefix);
+                    }
+                    if (result != null)
+                    {
+                        yield return query.Key;
+                        break;
+                    }
+                }
+        }
+
+        private static string GetSqlTypeString(SqlParameter parameter)
+        {
+            switch (parameter.SqlDbType)
+            {
+                case SqlDbType.UniqueIdentifier:
+                    return "UNIQUEIDENTIFIER";
+                case SqlDbType.Int:
+                    return "INT";
+                case SqlDbType.NVarChar:
+                    if (parameter.Size == -1)
+                        return "NVARCHAR(MAX)";
+                    else
+                        throw new ApplicationException();
+                case SqlDbType.DateTime:
+                    return "DATETIME";
+                case SqlDbType.Decimal:
+                    return "DECIMAL";
+                default:
+                    throw new ApplicationException();
+            }
+        }
+
+        private static void DropProcedure(SqlConnection connection, string prefix)
+        {
+            using (var command = new SqlCommand())
+            {
+                command.Connection = connection;
+                command.CommandText = $@"
+IF EXISTS ( SELECT  *
+            FROM    sys.objects
+            WHERE   object_id = OBJECT_ID(N'[dbo].[{QueryLiftingTemp}{prefix}]')
+                    AND type IN ( N'P', N'PC' ) ) 
+    DROP PROCEDURE [dbo].[{QueryLiftingTemp}{prefix}]";
+                command.ExecuteNonQuery();
+            }
+        }
+
+        private const string QueryLiftingTemp = "QueryLiftingTemp";
     }
 }

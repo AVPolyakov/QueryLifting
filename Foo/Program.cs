@@ -207,7 +207,7 @@ WHERE CreationDate > @date").AddParams(new {date = p.date()}).Read<A001>()))
             OptionExample(new DateTime(2015, 1, 1));
             FuncExample();
             MyEnumExample();
-            ChoiceExample("qwe");
+            ChoiceExample("test");
         }
 
         public static void Init()
