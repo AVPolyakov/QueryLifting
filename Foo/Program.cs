@@ -12,6 +12,23 @@ namespace Foo
 {
     public class Program
     {
+        static void Main()
+        {
+            Init();
+
+            DataReaderExample(new DateTime(2015, 1, 1));
+            PostExample(new DateTime(2015, 1, 1));
+            InsertUpdateDelete();
+            NamedMethod(new DateTime(2015, 1, 1));
+            ParamExample();
+            PaggingByTwoQueries(new DateTime(2015, 1, 1), 1, 1);
+            PaggingByOneQuery(new DateTime(2015, 1, 1), 1, 1);
+            OptionExample(new DateTime(2015, 1, 1));
+            FuncExample();
+            MyEnumExample();
+            ChoiceExample("test");
+        }
+
         private static void DataReaderExample(DateTime? date)
         {
             new {date}.Apply(p => {
@@ -191,23 +208,6 @@ WHERE CreationDate > @date").AddParams(new {date = p.date()}).Read<A001>()))
             var single = new {a = MyEnum.A}
                 .Apply(p => new SqlCommand(@"SELECT @a AS a").AddParams(p).Read<Option<MyEnum>>()).Single();
             Assert.AreEqual(MyEnum.A, single);
-        }
-
-        static void Main()
-        {
-            Init();
-
-            DataReaderExample(new DateTime(2015, 1, 1));
-            PostExample(new DateTime(2015, 1, 1));
-            InsertUpdateDelete();
-            NamedMethod(new DateTime(2015, 1, 1));
-            ParamExample();
-            PaggingByTwoQueries(new DateTime(2015, 1, 1), 1, 1);
-            PaggingByOneQuery(new DateTime(2015, 1, 1), 1, 1);
-            OptionExample(new DateTime(2015, 1, 1));
-            FuncExample();
-            MyEnumExample();
-            ChoiceExample("test");
         }
 
         public static void Init()
