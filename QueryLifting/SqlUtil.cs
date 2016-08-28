@@ -456,6 +456,25 @@ WHERE {whereClause}", p).ToString();
                 }
             }
         }
+
+        public static Action<StringBuilder, SqlCommand> QueryAction(Action<StringBuilder, SqlCommand> action) 
+            => action;
+
+        public static SqlCommand GetCommand(Action<StringBuilder, SqlCommand> action)
+        {
+            var builder = new StringBuilder();
+            var command = new SqlCommand();
+            action(builder, command);
+            command.CommandText = builder.ToString();
+            return command;
+        }
+
+        public static StringBuilder Text(Action<StringBuilder, SqlCommand> action, SqlCommand command)
+        {
+            var builder = new StringBuilder();
+            action(builder, command);
+            return builder;
+        }
     }
 
     internal class ColumnInfo

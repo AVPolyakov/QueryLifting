@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
@@ -27,6 +28,8 @@ namespace Foo
             FuncExample();
             MyEnumExample();
             ChoiceExample("test");
+            ParentChildExample();
+            ParentChildExample2();
         }
 
         private static void DataReaderExample(DateTime? date)
@@ -208,6 +211,70 @@ WHERE CreationDate > @date").AddParams(new {date = p.date()}).Read<A001>()))
             var single = new {a = MyEnum.A}
                 .Apply(p => new SqlCommand(@"SELECT @a AS a").AddParams(p).Read<Option<MyEnum>>()).Single();
             Assert.AreEqual(MyEnum.A, single);
+        }
+
+        private static void ParentChildExample(int maxParentId = 10)
+        {
+            var result = new {maxParentId}.Apply(p => {
+                var command = new SqlCommand();
+                var parent = @"
+SELECT *
+FROM Parent
+WHERE ParentId <= @maxParentId";
+                command.AddParams(new {p.maxParentId});
+                command.CommandText = $@"
+{parent};
+SELECT *
+FROM Child
+WHERE ParentId IN (SELECT ParentId FROM ({parent}) T);";
+                return command.Query(reader => {
+                    var parents = reader.Read<Parent>().ToList();
+                    reader.NextResult();
+                    var children = reader.Read<Child>().ToList();
+                    return new {parents, children};
+                });
+            }).Read();
+            var parentChild = result.children.ToLookup(_ => _.ParentId);
+            foreach (var parent in result.parents)
+            {
+                Console.WriteLine(parent.ParentId);
+                foreach (var child in parentChild[parent.ParentId])
+                    Console.WriteLine($"  {child.ChildId}");
+            }
+            var childParent = result.parents.ToDictionary(_ => _.ParentId);
+            foreach (var child in result.children)
+                Console.WriteLine($"{child.ChildId} {childParent[child.ParentId].ParentId}");
+        }
+
+        private static void ParentChildExample2(int maxChildId = 10)
+        {
+            var queries = new {maxChildId}.Apply(p => {
+                var child = QueryAction((builder, command) => builder.Append(command, @"
+SELECT *
+FROM Child
+WHERE ChildId <= @maxChildId", new {p.maxChildId}));
+                return new {
+                    child = GetCommand(child).Query<Child>(),
+                    parent = GetCommand((builder, command) => builder.Append($@"
+SELECT *
+FROM Parent
+WHERE ParentId IN (SELECT ParentId FROM ({Text(child, command)}) T)")).Query<Parent>()
+                };
+            });
+            var result = Transaction(IsolationLevel.Snapshot, transaction => new {
+                children = queries.child.Read(transaction).ToList(),
+                parents = queries.parent.Read(transaction).ToList()
+            });
+            var parentChild = result.children.ToLookup(_ => _.ParentId);
+            foreach (var parent in result.parents)
+            {
+                Console.WriteLine(parent.ParentId);
+                foreach (var child in parentChild[parent.ParentId])
+                    Console.WriteLine($"  {child.ChildId}");
+            }
+            var childParent = result.parents.ToDictionary(_ => _.ParentId);
+            foreach (var child in result.children)
+                Console.WriteLine($"{child.ChildId} {childParent[child.ParentId].ParentId}");
         }
 
         public static void Init()
