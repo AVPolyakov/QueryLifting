@@ -33,20 +33,20 @@ namespace Foo.Tests
         private void TestQueries(Action<SqlCommand, Option<string>> onQuery, Action<MethodBase> methodSetter)
         {
             UsingQueryChecker(new QueryChecker(onQuery), () => {
-                foreach (var usage in new[] {typeof (Program)}.SelectMany(_ => _.Assembly.GetTypes()).ResolveUsages())
+                foreach (var usage in new[] {typeof(Program)}.SelectMany(_ => _.Assembly.GetTypes()).ResolveUsages())
                 {
                     var methodInfo = usage.ResolvedMember as MethodInfo;
                     if (methodInfo != null &&
                         (methodInfo.IsGenericMethod && new[] {
-                            readMethod, readMethod2, queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod,
-                            deleteQueryMethod, pagedQueriesMethod, pagedQueryMethod
-                        }.Contains(methodInfo.GetGenericMethodDefinition()) ||
+                             readMethod, readMethod2, queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod,
+                             deleteQueryMethod, pagedQueriesMethod, pagedQueryMethod
+                         }.Contains(methodInfo.GetGenericMethodDefinition()) ||
                          methodInfo == nonQueryMethod))
                     {
                         var currentMethod = usage.CurrentMethod as MethodInfo;
                         if (currentMethod != null && currentMethod.IsGenericMethod && new[] {
-                            pagedQueriesMethod, pagedQueryMethod
-                        }.Contains(currentMethod.GetGenericMethodDefinition()))
+                                pagedQueriesMethod, pagedQueryMethod
+                            }.Contains(currentMethod.GetGenericMethodDefinition()))
                             continue;
                         var invocation = usage.CurrentMethod.GetStaticInvocation();
                         if (!invocation.HasValue) throw new ApplicationException();
@@ -55,16 +55,18 @@ namespace Foo.Tests
                                 () => invocation.Value(combination.ToArray()));
                     }
                 }
-                {
-                    var methodInfo = typeof (Program).GetMethod(nameof(ReadPosts));
-                    foreach (var combination in methodInfo.GetParameters().GetAllCombinations(parameterInfo => {
-                        if (parameterInfo.Name == "date") return new object[] {new DateTime?(), new DateTime(2001, 1, 1),};
-                        throw new ApplicationException();
-                    }))
-                        UsingMethod(methodSetter, methodInfo,
-                            () => methodInfo.Invoke(null, combination.ToArray()));
-                }
+                TestMethod(typeof(Program).GetMethod(nameof(ReadPosts)), parameterInfo => {
+                    if (parameterInfo.Name == "date") return new object[] {new DateTime?(), new DateTime(2001, 1, 1),};
+                    throw new ApplicationException();
+                }, methodSetter);
             });
+        }
+
+        private static void TestMethod(MethodInfo methodInfo, Func<ParameterInfo, IEnumerable<object>> choiceFunc, Action<MethodBase> methodSetter)
+        {
+            foreach (var combination in methodInfo.GetParameters().GetAllCombinations(choiceFunc))
+                UsingMethod(methodSetter, methodInfo,
+                    () => methodInfo.Invoke(null, combination.ToArray()));
         }
 
         private static IEnumerable<object> TestValues(ParameterInfo parameterInfo)

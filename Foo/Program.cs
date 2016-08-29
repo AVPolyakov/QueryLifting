@@ -227,11 +227,9 @@ WHERE ParentId <= @maxParentId";
 SELECT *
 FROM Child
 WHERE ParentId IN (SELECT ParentId FROM ({parent}) T);";
-                return command.Query(reader => {
-                    var parents = reader.Read<Parent>().ToList();
-                    reader.NextResult();
-                    var children = reader.Read<Child>().ToList();
-                    return new {parents, children};
+                return command.Query(reader => new {
+                    parents = reader.Read<Parent>().ToList(),
+                    children = reader.ReadNext<Child>().ToList()
                 });
             }).Read();
             var parentChild = result.children.ToLookup(_ => _.ParentId);

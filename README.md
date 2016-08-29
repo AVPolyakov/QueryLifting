@@ -3,22 +3,22 @@ The [test](Foo.Tests/QueryTests.cs#L28)
 [executes](Foo.Tests/QueryChecker.cs#L27)
 the SQL queries in SchemaOnly mode. 
 The test checks the match of 
-the [names and types of query columns](Foo/Program.cs#L37)
-and the [calls of DataReader methods](Foo/Program.cs#L44-L46). 
+the [names and types of query columns](Foo/Program.cs#L40)
+and the [calls of DataReader methods](Foo/Program.cs#L47-L49). 
 If there is no match then the test 
 [writes to console](Foo.Tests/QueryChecker.cs#L100-L104)
 the code for correct data retrieving.
 
-The [general test](Foo.Tests/QueryTests.cs#L36)
+The [general test](Foo.Tests/QueryTests.cs#L28)
 [finds](QueryLifting/UsageResolver.cs#L14) and calls 
 all the methods where a method of
 [specified set](Foo.Tests/QueryTests.cs#L41-L42)
 is invoked.
 You can explicitly specify
-the [test method](Foo.Tests/QueryTests.cs#L59).
+the [test method](Foo.Tests/QueryTests.cs#L58).
 
 Test values of parameters are specified in the method
-[TestValues](Foo.Tests/QueryTests.cs#L72-L128).
+[TestValues](Foo.Tests/QueryTests.cs#L74-L130).
 The test iterates through
 [all combinations of test values](QueryLifting/EnumerableExtensions.cs#L9).
 All possible values are listed for the types 
@@ -32,9 +32,9 @@ etc.
 If the building of the query depends on these types only then all versions of the query will be tested.
 
 You can explicitly specify 
-the [test values for the particular parameter](Foo.Tests/QueryTests.cs#L61).
+the [test values for the particular parameter](Foo.Tests/QueryTests.cs#L59).
 
-The [test method](Foo/Program.cs#L55-L63) 
+The [test method](Foo/Program.cs#L58-L66) 
 may be [anonymous](QueryLifting/Func.cs#L7)
 (code coverage visualization by [dotCover](https://www.jetbrains.com/help/dotcover/10.0/Visualizing_Code_Coverage.html)):  
 ![Code coverage](Images/CodeCoverage.png?raw=true "Code coverage")  
@@ -43,7 +43,7 @@ may be [anonymous](QueryLifting/Func.cs#L7)
 
 In addition to the validation of queries the tests can be used to find 
 all references to database entities: tables, columns, etc. 
-The [method](Foo.Tests/QueryTests.cs#L200) 
+The [method](Foo.Tests/QueryTests.cs#L202) 
 writes to the console the locations of the queries that use 
 the specified database entity `tableName: "Post", columnName: "CreationDate"`.
 ```

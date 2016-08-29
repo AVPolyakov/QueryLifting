@@ -46,12 +46,9 @@ ORDER BY
 OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY;
 SELECT COUNT(*) FROM ({queryText}) T;",
                     new {offset, pageSize});
-            }).Query(reader => {
-                var data = reader.Read<TData>().ToList();
-                reader.NextResult();
-                var enumerable = reader.Read<Option<int>>().Select(_ => _.Value);
-                return PaggingInfo.Create(data, QueryChecker == null ? enumerable.Single() : 0);
-            });
+            }).Query(reader => PaggingInfo.Create(
+                reader.Read<TData>().ToList(), 
+                QueryChecker == null ? reader.ReadNext<Option<int>>().Select(_ => _.Value).Single() : 0));
         }
 
         public static T Transaction<T>(IsolationLevel isolationLevel, Func<SqlTransaction, T> func)

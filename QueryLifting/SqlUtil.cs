@@ -40,6 +40,12 @@ namespace QueryLifting
             while (reader.Read()) yield return materializer();
         }
 
+        public static IEnumerable<T> ReadNext<T>(this SqlDataReader reader)
+        {
+            reader.NextResult();
+            return reader.Read<T>();
+        }
+
         public static Func<string> ConnectionStringFunc = () => { throw new ApplicationException("Set the connection string func at application start."); };
 
         public static IEnumerable<T> Read<T>(this Query<IEnumerable<T>> query)
