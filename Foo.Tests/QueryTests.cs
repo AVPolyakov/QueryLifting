@@ -6,8 +6,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using PdfSharp.Drawing;
 using QueryLifting;
 using static Foo.FooSqlUtil;
 using static QueryLifting.SqlUtil;
@@ -234,12 +236,55 @@ AS
                     }
                 }
             }, method => currentMethod = method);
+            SharpLayout.Document.CollectCallerInfo = true;
+            var document = new SharpLayout.Document();
+            var settings = new SharpLayout.PageSettings();
+            settings.LeftMargin = settings.TopMargin = settings.RightMargin = settings.BottomMargin = SharpLayout.Util.Cm(0.5);
+            var section = document.Add(new SharpLayout.Section(settings));
             foreach (var usage in FindUsages(queries, tableName: "Post", columnName: "CreationDate"))
             {
                 var file = Path.GetFileName(usage.Item1);
+                section.Add(new SharpLayout.Paragraph()
+                    .Add($"{file}, Ln {usage.Item2}, Col {usage.Item3}", new XFont("Consolas", 9.5),
+                        line: usage.Item2, filePath: usage.Item1));
                 Console.WriteLine($"{file}, Ln {usage.Item2}, Col {usage.Item3}");
             }
+            StartLiveViewer(document.SavePng(0, "Temp.png", 120), true);
         }
+
+        public static void StartLiveViewer(string fileName, bool alwaysShowWindow, bool findId = true)
+        {
+            var processes = Process.GetProcessesByName("LiveViewer");
+            if (processes.Length <= 0)
+            {
+                string arguments;
+                if (findId && Ide == vs)
+                {
+                    const string solutionName = "QueryLifting";
+                    var firstOrDefault = Process.GetProcesses().FirstOrDefault(p => p.ProcessName == "devenv" &&
+                        p.MainWindowTitle.Contains(solutionName));
+                    if (firstOrDefault != null)
+                        arguments = $" {firstOrDefault.Id}";
+                    else
+                        arguments = "";
+                }
+                else
+                    arguments = "";
+                Process.Start("LiveViewer", fileName + " " + Ide + arguments);
+            }
+            else
+            {
+                if (alwaysShowWindow)
+                    SetForegroundWindow(processes[0].MainWindowHandle);
+            }
+        }
+
+        private static string Ide => vs;
+
+        private const string vs = "vs";
+
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
 
         private static IEnumerable<Tuple<string, int, int>> FindUsages(
             Dictionary<Tuple<string, int, int>, HashSet<Tuple<string, string>>> queries,
