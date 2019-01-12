@@ -70,19 +70,42 @@ WHERE 1 = 1");
             }
         }
 
+        private class PostData
+        {
+            public string Text { get; set; }
+            public DateTime CreationDate { get; set; }
+        }
+
+        private static int InsertOrUpdate(int? id, PostData data)
+        {
+            var param = new {
+                data.Text, 
+                data.CreationDate
+            };
+            const string table = "Post";
+            if (!id.HasValue)
+                return param.Apply(p => 
+                    InsertQuery(table, default(int), p)).Read().Single();
+            else
+            {
+                new {PostId = id.Value, param}.Apply(p =>
+                    UpdateQuery(table, new {p.PostId}, p.param)).Execute();
+                return id.Value;
+            }
+        }
+
         private static void InsertUpdateDelete()
         {
-            var id = new {Text = "Test", CreationDate = DateTime.Now}.Apply(p =>
-                InsertQuery(default(int), "Post", p)).Read().Single();
-            Console.WriteLine(id);
-            Assert.AreEqual("Test",
-                new {id}.Apply(p => new SqlCommand("SELECT Text FROM Post WHERE PostId = @Id").AddParams(p)
-                    .Read<Option<string>>()).Single());
+            int id;
             {
-                var rowsNumber = new {PostId = id, Text = "Test2", CreationDate = DateTime.Now}.Apply(p =>
-                    UpdateQuery("Post", p)).Execute();
-                Assert.AreEqual(1, rowsNumber);
-                Console.WriteLine(rowsNumber);
+                id = InsertOrUpdate(null, new PostData {Text = "Test", CreationDate = DateTime.Now});
+                Console.WriteLine(id);
+                Assert.AreEqual("Test",
+                    new {id}.Apply(p => new SqlCommand("SELECT Text FROM Post WHERE PostId = @Id").AddParams(p)
+                        .Read<Option<string>>()).Single());
+            }
+            {
+                InsertOrUpdate(id, new PostData {Text = "Test2", CreationDate = DateTime.Now});
                 Assert.AreEqual("Test2",
                     new {id}.Apply(p => new SqlCommand("SELECT Text FROM Post WHERE PostId = @Id").AddParams(p)
                         .Read<Option<string>>()).Single());

@@ -389,7 +389,7 @@ namespace QueryLifting
             }
         }
 
-        public static Query<IEnumerable<TKey>> InsertQuery<T, TKey>(TKey prototype, string table, T p, Option<string> connectionString = new Option<string>())
+        public static Query<IEnumerable<TKey>> InsertQuery<T, TKey>(string table, TKey prototype, T p, Option<string> connectionString = new Option<string>())
         {
             var command = new SqlCommand();
             var columns = GetColumns(table, connectionString);
@@ -403,16 +403,18 @@ VALUES ({valuesClause})", p).ToString();
             return command.Query<TKey>();
         }
 
-        public static NonQuery UpdateQuery<T>(string table, T p, Option<string> connectionString = new Option<string>())
+        public static NonQuery UpdateQuery<TKey, T>(string table, TKey key, T p, Option<string> connectionString = new Option<string>())
         {
             var command = new SqlCommand();
             var columns = GetColumns(table, connectionString);
             var setClause = string.Join(",", from _ in columns where !_.IsKey select $"{_.ColumnName}=@{_.ColumnName}");
             var whereClause = string.Join(" AND ", from _ in columns where _.IsKey select $"{_.ColumnName}=@{_.ColumnName}");
-            command.CommandText = new StringBuilder().Append(command, $@"
+            command.CommandText = new StringBuilder().Append($@"
 UPDATE {table}
 SET {setClause}
-WHERE {whereClause}", p).ToString();
+WHERE {whereClause}").ToString();
+            command.AddParams(key);
+            command.AddParams(p);
             return command.NonQuery();
         }
 
