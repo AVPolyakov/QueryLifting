@@ -51,7 +51,7 @@ namespace Foo.Tests
                             }.Contains(currentMethod.GetGenericMethodDefinition()))
                             continue;
                         var invocation = usage.CurrentMethod.GetStaticInvocation();
-                        if (!invocation.HasValue) throw new ApplicationException();
+                        if (!invocation.HasValue) throw new ApplicationException("Method must be static");
                         foreach (var combination in usage.CurrentMethod.GetParameters().GetAllCombinations(TestValues))
                             UsingMethod(methodSetter, usage.CurrentMethod,
                                 () => invocation.Value(combination.ToArray()));
@@ -130,7 +130,7 @@ namespace Foo.Tests
                     return new[] {method.Invoke(null, args)};
                 }
             }
-            throw new ApplicationException();
+            throw new ApplicationException($"Test value not found for parameter type `{parameterInfo.ParameterType}`");
         }
 
         private static T? CreateNullable<T>(T arg) where T : struct => arg;

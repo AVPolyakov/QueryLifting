@@ -44,7 +44,7 @@ namespace Foo.Tests
             if (ordinals.Count != reader.FieldCount)
             {
                 WriteDataRetrievingCode(reader);
-                throw new ApplicationException();
+                throw new ApplicationException("Field count mismatch");
             }
             return Enumerable.Empty<T>();
         }
@@ -92,7 +92,7 @@ namespace Foo.Tests
             catch (IndexOutOfRangeException)
             {
                 WriteDataRetrievingCode(reader);
-                throw;
+                throw new ApplicationException($"Field '{name}' not found in query");
             }
         }
 
@@ -120,7 +120,8 @@ namespace Foo.Tests
 
         public void NonQuery(NonQuery query)
         {
-            onQuery(query.Command, query.ConnectionString);
+	        ApplicationException GetException() => new ApplicationException("Parameter type mismatch");
+	        onQuery(query.Command, query.ConnectionString);
             using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, SqlUtil.ConnectionStringFunc)))
                 if (query.Command.CommandType == CommandType.StoredProcedure)
                 {
@@ -138,10 +139,10 @@ namespace Foo.Tests
                                     //no-op
                                 }
                                 else
-                                    throw new ApplicationException();
+                                    throw GetException();
                             if (value.Size == -1)
                             {
-                                if (parameter.Size != -1) throw new ApplicationException();
+                                if (parameter.Size != -1) throw GetException();
                             }
                             else
                             {
@@ -151,12 +152,12 @@ namespace Foo.Tests
                                 }
                                 else
                                 {
-                                    if (parameter.Size < value.Size) throw new ApplicationException();
+                                    if (parameter.Size < value.Size) throw GetException();
                                 }
                             }
                         }
                         else
-                            throw new ApplicationException();
+                            throw GetException();
                     }
                 }
                 else
