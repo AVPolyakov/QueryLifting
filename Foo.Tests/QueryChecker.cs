@@ -10,23 +10,36 @@ namespace Foo.Tests
 {
     internal class QueryChecker : IQueryChecker
     {
-        private readonly Action<SqlCommand, Option<string>> onQuery;
+        private readonly Action<QueryInfo> onQuery;
 
-        public QueryChecker(Action<SqlCommand, Option<string>> onQuery)
+        public QueryChecker(Action<QueryInfo> onQuery)
         {
             this.onQuery = onQuery;
         }
 
         public void Query<T>(Query<T> query)
         {
-            onQuery(query.Command, query.ConnectionString);
-            using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, SqlUtil.ConnectionStringFunc)))
+            var info = new QueryInfo(query.Command, query.ConnectionString, query.Line, query.FilePath);
+            onQuery(info);
+            try
             {
-                query.Command.Connection = connection;
-                connection.Open();
-                using (var reader = query.Command.ExecuteReader(CommandBehavior.SchemaOnly))
-                    query.ReaderFunc(reader);
+                using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, SqlUtil.ConnectionStringFunc)))
+                {
+                    query.Command.Connection = connection;
+                    connection.Open();
+                    using (var reader = query.Command.ExecuteReader(CommandBehavior.SchemaOnly))
+                        query.ReaderFunc(reader);
+                }
             }
+            catch (Exception e)
+            {
+                throw GetException(e, info);
+            }
+        }
+
+        private static ApplicationException GetException(Exception e, QueryInfo info)
+        {
+            return new ApplicationException($"{e.Message}{(e.Message.EndsWith(".") ? "" : ".") } Information about query Line: {info.Line}, File: {info.FilePath} QueryText: {info.Command.CommandText}", e);
         }
 
         public IEnumerable<T> Read<T>(SqlDataReader reader, Func<T> materializer)
@@ -54,7 +67,7 @@ namespace Foo.Tests
 	        if (!ordinalDictionary.TryGetValue(reader, out var ordinals)) throw new ApplicationException();
             ordinals.Add(ordinal);
             var type = typeof (T);
-            ApplicationException GetException() => new ApplicationException($"Type mismatch for field '{reader.GetName(ordinal)}'");
+            ApplicationException GetInnerException() => new ApplicationException($"Type mismatch for field '{reader.GetName(ordinal)}'");
             if (AllowDBNull(reader, ordinal))
             {
 	            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>) &&
@@ -69,7 +82,7 @@ namespace Foo.Tests
 	            else
 	            {
 		            WriteDataRetrievingCode(reader);
-		            throw GetException();
+		            throw GetInnerException();
 	            }
             }
             else
@@ -77,7 +90,7 @@ namespace Foo.Tests
                 if (!TypesAreCompatible(reader.GetFieldType(ordinal), type))
                 {
                     WriteDataRetrievingCode(reader);
-                    throw GetException();
+                    throw GetInnerException();
                 }
             }
             return default(T);
@@ -120,8 +133,12 @@ namespace Foo.Tests
 
         public void NonQuery(NonQuery query)
         {
-	        ApplicationException GetException() => new ApplicationException("Parameter type mismatch");
-	        onQuery(query.Command, query.ConnectionString);
+	        ApplicationException GetInnerException() => new ApplicationException("Parameter type mismatch");
+            var info = new QueryInfo(query.Command, query.ConnectionString, query.Line, query.FilePath);
+            onQuery(info);
+            try
+            {
+
             using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, SqlUtil.ConnectionStringFunc)))
                 if (query.Command.CommandType == CommandType.StoredProcedure)
                 {
@@ -139,10 +156,10 @@ namespace Foo.Tests
                                     //no-op
                                 }
                                 else
-                                    throw GetException();
+                                    throw GetInnerException();
                             if (value.Size == -1)
                             {
-                                if (parameter.Size != -1) throw GetException();
+                                if (parameter.Size != -1) throw GetInnerException();
                             }
                             else
                             {
@@ -152,12 +169,12 @@ namespace Foo.Tests
                                 }
                                 else
                                 {
-                                    if (parameter.Size < value.Size) throw GetException();
+                                    if (parameter.Size < value.Size) throw GetInnerException();
                                 }
                             }
                         }
                         else
-                            throw GetException();
+                            throw GetInnerException();
                     }
                 }
                 else
@@ -168,6 +185,27 @@ namespace Foo.Tests
                     {
                     }
                 }
+            }
+            catch (Exception e)
+            {
+                throw GetException(e, info);
+            }
+        }
+    }
+
+    public struct QueryInfo
+    {
+        public SqlCommand Command { get; }
+        public Option<string> ConnectionString { get; }
+        public int Line { get; }
+        public string FilePath { get; }
+
+        public QueryInfo(SqlCommand command, Option<string> connectionString, int line, string filePath)
+        {
+            Command = command;
+            ConnectionString = connectionString;
+            Line = line;
+            FilePath = filePath;
         }
     }
 }

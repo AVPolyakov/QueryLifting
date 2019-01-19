@@ -14,21 +14,26 @@ namespace QueryLifting
 {
     public static class SqlUtil
     {
-        public static Query<T> Query<T>(this SqlCommand command, Func<SqlDataReader, T> readerFunc, Option<string> connectionString = new Option<string>())
-            => new Query<T>(command, readerFunc, connectionString);
+        public static Query<T> Query<T>(this SqlCommand command, Func<SqlDataReader, T> readerFunc, Option<string> connectionString = new Option<string>(),
+            [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
+            => new Query<T>(command, readerFunc, connectionString, line, filePath);
 
-        public static NonQuery NonQuery(this SqlCommand command, Option<string> connectionString = new Option<string>())
-            => new NonQuery(command, connectionString);
+        public static NonQuery NonQuery(this SqlCommand command, Option<string> connectionString = new Option<string>(),
+            [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
+            => new NonQuery(command, connectionString, line, filePath);
 
         public static IEnumerable<T> Read<T>(this SqlCommand command, Func<SqlDataReader, T> materializer,
-            Option<string> connectionString = new Option<string>())
-            => command.Query(reader => reader.Read(() => materializer(reader)), connectionString).Read();
+            Option<string> connectionString = new Option<string>(),
+            [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
+            => command.Query(reader => reader.Read(() => materializer(reader)), connectionString, line, filePath).Read();
 
-        public static IEnumerable<T> Read<T>(this SqlCommand command, Option<string> connectionString = new Option<string>())
-            => command.Query<T>(connectionString).Read();
+        public static IEnumerable<T> Read<T>(this SqlCommand command, Option<string> connectionString = new Option<string>(),
+            [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
+            => command.Query<T>(connectionString, line, filePath).Read();
 
-        public static Query<IEnumerable<T>> Query<T>(this SqlCommand command, Option<string> connectionString = new Option<string>())
-            => command.Query(Read<T>, connectionString);
+        public static Query<IEnumerable<T>> Query<T>(this SqlCommand command, Option<string> connectionString = new Option<string>(),
+            [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
+            => command.Query(Read<T>, connectionString, line, filePath);
 
         public static IEnumerable<T> Read<T>(this SqlDataReader reader) => Read(reader, reader.GetMaterializer<T>());
 
@@ -385,7 +390,7 @@ namespace QueryLifting
             }
         }
 
-        public static Query<IEnumerable<TKey>> InsertQuery<T, TKey>(string table, TKey prototype, T p, Option<string> connectionString = new Option<string>())
+        public static Query<IEnumerable<TKey>> InsertQuery<T, TKey>(string table, TKey prototype, T p, Option<string> connectionString = new Option<string>(), [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
         {
             var command = new SqlCommand();
             var columns = GetColumns(table, connectionString);
@@ -396,10 +401,11 @@ namespace QueryLifting
 INSERT INTO {table} ({columnsClause}) 
 OUTPUT inserted.{outClause}
 VALUES ({valuesClause})", p).ToString();
-            return command.Query<TKey>();
+            return command.Query<TKey>(line: line, filePath: filePath);
         }
 
-        public static NonQuery UpdateQuery<TKey, T>(string table, TKey key, T p, Option<string> connectionString = new Option<string>())
+        public static NonQuery UpdateQuery<TKey, T>(string table, TKey key, T p, Option<string> connectionString = new Option<string>(),
+            [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
         {
             var command = new SqlCommand();
             var columns = GetColumns(table, connectionString);
@@ -411,10 +417,11 @@ SET {setClause}
 WHERE {whereClause}").ToString();
             command.AddParams(key);
             command.AddParams(p);
-            return command.NonQuery();
+            return command.NonQuery(filePath: filePath, line: line);
         }
 
-        public static NonQuery DeleteQuery<T>(string table, T p, Option<string> connectionString = new Option<string>())
+        public static NonQuery DeleteQuery<T>(string table, T p, Option<string> connectionString = new Option<string>(),
+            [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
         {
             var command = new SqlCommand();
             var columns = GetColumns(table, connectionString);
@@ -422,7 +429,7 @@ WHERE {whereClause}").ToString();
             command.CommandText = new StringBuilder().Append(command, $@"
 DELETE FROM {table}
 WHERE {whereClause}", p).ToString();
-            return command.NonQuery();
+            return command.NonQuery(line: line, filePath: filePath);
         }
 
         private static List<ColumnInfo> GetColumns(string table, Option<string> connectionString)

@@ -44,11 +44,12 @@ WHERE 1 = 1");
     AND CreationDate > @date", new {p.date});
                 command.CommandText = builder.ToString();
                 return command.Read(reader => {
-                    Console.WriteLine("{0} {1} {2}", reader.Int32(reader.GetOrdinal("PostId")),
-                        reader.String(reader.GetOrdinal("Text")),
-                        reader.DateTime(reader.GetOrdinal("CreationDate")));
+                    Console.WriteLine("{0} {1} {2}", reader.Int32(reader.Ordinal("PostId")),
+                        reader.String(reader.Ordinal("Text")),
+                        reader.DateTime(reader.Ordinal("CreationDate")));
                     return new {};
                 });
+                // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
             }).ToList();
         }
 
