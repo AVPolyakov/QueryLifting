@@ -39,8 +39,7 @@ namespace Foo.Tests
             }
             finally
             {
-                HashSet<int> value;
-                if (!ordinalDictionary.TryRemove(reader, out value)) throw new ApplicationException();
+	            if (!ordinalDictionary.TryRemove(reader, out _)) throw new ApplicationException();
             }
             if (ordinals.Count != reader.FieldCount)
             {
@@ -52,25 +51,33 @@ namespace Foo.Tests
 
         public T Check<T>(SqlDataReader reader, int ordinal)
         {
-            HashSet<int> ordinals;
-            if (!ordinalDictionary.TryGetValue(reader, out ordinals)) throw new ApplicationException();
+	        if (!ordinalDictionary.TryGetValue(reader, out var ordinals)) throw new ApplicationException();
             ordinals.Add(ordinal);
             var type = typeof (T);
+            ApplicationException GetException() => new ApplicationException($"Type mismatch for field '{reader.GetName(ordinal)}'");
             if (AllowDBNull(reader, ordinal))
             {
-                if (!(type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Option<>) &&
-                      TypesAreCompatible(reader.GetFieldType(ordinal), type.GetGenericArguments().Single())))
-                {
-                    WriteDataRetrievingCode(reader);
-                    throw new ApplicationException();
-                }
+	            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>) &&
+		            TypesAreCompatible(reader.GetFieldType(ordinal), type.GetGenericArguments().Single()))
+	            {
+		            //no-op
+	            }
+	            else if (type == typeof(string) && TypesAreCompatible(reader.GetFieldType(ordinal), type))
+	            {
+					//no-op
+	            }
+	            else
+	            {
+		            WriteDataRetrievingCode(reader);
+		            throw GetException();
+	            }
             }
             else
             {
                 if (!TypesAreCompatible(reader.GetFieldType(ordinal), type))
                 {
                     WriteDataRetrievingCode(reader);
-                    throw new ApplicationException();
+                    throw GetException();
                 }
             }
             return default(T);
@@ -123,8 +130,7 @@ namespace Foo.Tests
                     var dictionary = command.Parameters.Cast<SqlParameter>().ToDictionary(_ => _.ParameterName);
                     foreach (SqlParameter parameter in query.Command.Parameters)
                     {
-                        SqlParameter value;
-                        if (dictionary.TryGetValue(parameter.ParameterName, out value))
+	                    if (dictionary.TryGetValue(parameter.ParameterName, out var value))
                         {
                             if (parameter.SqlDbType != value.SqlDbType)
                                 if (parameter.SqlDbType == SqlDbType.NVarChar && value.SqlDbType == SqlDbType.VarChar)

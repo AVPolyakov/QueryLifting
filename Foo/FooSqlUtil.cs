@@ -14,10 +14,10 @@ namespace Foo
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, MyEnum value) 
             => command.AddParam(parameterName, (int) value);
 
-        public static Option<MyEnum> OptionMyEnum(this SqlDataReader reader, int ordinal)
+        public static MyEnum? NullableMyEnum(this SqlDataReader reader, int ordinal)
             => QueryChecker != null
-                ? QueryChecker.Check<Option<MyEnum>>(reader, ordinal)
-                : (reader.IsDBNull(ordinal) ? new Option<MyEnum>() : (MyEnum) reader.GetInt32(ordinal));
+                ? QueryChecker.Check<MyEnum?>(reader, ordinal)
+                : (reader.IsDBNull(ordinal) ? new MyEnum?() : (MyEnum) reader.GetInt32(ordinal));
 
         public static PaggingInfo<IEnumerable<TData>, Query<int>> PagedQueries<TData>(
             Action<StringBuilder, SqlCommand> query, Action<StringBuilder, SqlCommand> orderBy, int offset, int pageSize)
@@ -29,7 +29,7 @@ ORDER BY
 OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY", new {offset, pageSize})).Read<TData>(),
                 GetCommand((builder, command) => builder.Append($@"
 SELECT COUNT(*) FROM ({Text(query, command)}) T")).Query(reader => {
-                    var enumerable = reader.Read<Option<int>>().Select(_ => _.Value);
+                    var enumerable = reader.Read<int?>().Select(_ => _.Value);
                     return QueryChecker == null ? enumerable.Single() : 0;
                 }));
         }
@@ -48,7 +48,7 @@ SELECT COUNT(*) FROM ({queryText}) T;",
                     new {offset, pageSize});
             }).Query(reader => PaggingInfo.Create(
                 reader.Read<TData>().ToList(), 
-                QueryChecker == null ? reader.ReadNext<Option<int>>().Select(_ => _.Value).Single() : 0));
+                QueryChecker == null ? reader.ReadNext<int?>().Select(_ => _.Value).Single() : 0));
         }
 
         public static T Transaction<T>(IsolationLevel isolationLevel, Func<SqlTransaction, T> func)

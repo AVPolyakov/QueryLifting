@@ -83,50 +83,47 @@ namespace QueryLifting
         public static int Int32(this SqlDataReader reader, int ordinal)
             => QueryChecker != null ? QueryChecker.Check<int>(reader, ordinal) : reader.GetInt32(ordinal);
 
-        public static Option<int> OptionInt32(this SqlDataReader reader, int ordinal)
+        public static int? NullableInt32(this SqlDataReader reader, int ordinal)
             => QueryChecker != null
-                ? QueryChecker.Check<Option<int>>(reader, ordinal)
-                : (reader.IsDBNull(ordinal) ? new Option<int>() : reader.GetInt32(ordinal));
+                ? QueryChecker.Check<int?>(reader, ordinal)
+                : (reader.IsDBNull(ordinal) ? new int?() : reader.GetInt32(ordinal));
 
         public static decimal Decimal(this SqlDataReader reader, int ordinal)
             => QueryChecker != null ? QueryChecker.Check<decimal>(reader, ordinal) : reader.GetDecimal(ordinal);
 
-        public static Option<decimal> OptionDecimal(this SqlDataReader reader, int ordinal)
+        public static decimal? NullableDecimal(this SqlDataReader reader, int ordinal)
             => QueryChecker != null
-                ? QueryChecker.Check<Option<decimal>>(reader, ordinal)
-                : (reader.IsDBNull(ordinal) ? new Option<decimal>() : reader.GetDecimal(ordinal));
+                ? QueryChecker.Check<decimal?>(reader, ordinal)
+                : (reader.IsDBNull(ordinal) ? new decimal?() : reader.GetDecimal(ordinal));
 
         public static Guid Guid(this SqlDataReader reader, int ordinal)
             => QueryChecker != null ? QueryChecker.Check<Guid>(reader, ordinal) : reader.GetGuid(ordinal);
 
-        public static Option<Guid> OptionGuid(this SqlDataReader reader, int ordinal)
+        public static Guid? NullableGuid(this SqlDataReader reader, int ordinal)
             => QueryChecker != null
-                ? QueryChecker.Check<Option<Guid>>(reader, ordinal)
-                : (reader.IsDBNull(ordinal) ? new Option<Guid>() : reader.GetGuid(ordinal));
+                ? QueryChecker.Check<Guid?>(reader, ordinal)
+                : (reader.IsDBNull(ordinal) ? new Guid?() : reader.GetGuid(ordinal));
 
         public static DateTime DateTime(this SqlDataReader reader, int ordinal)
             => QueryChecker != null ? QueryChecker.Check<DateTime>(reader, ordinal) : reader.GetDateTime(ordinal);
 
-        public static Option<DateTime> OptionDateTime(this SqlDataReader reader, int ordinal)
+        public static DateTime? NullableDateTime(this SqlDataReader reader, int ordinal)
             => QueryChecker != null
-                ? QueryChecker.Check<Option<DateTime>>(reader, ordinal)
-                : (reader.IsDBNull(ordinal) ? new Option<DateTime>() : reader.GetDateTime(ordinal));
+                ? QueryChecker.Check<DateTime?>(reader, ordinal)
+                : (reader.IsDBNull(ordinal) ? new DateTime?() : reader.GetDateTime(ordinal));
 
         public static string String(this SqlDataReader reader, int ordinal)
-            => QueryChecker != null ? QueryChecker.Check<string>(reader, ordinal) : reader.GetString(ordinal);
-
-        public static Option<string> OptionString(this SqlDataReader reader, int ordinal)
             => QueryChecker != null
-                ? QueryChecker.Check<Option<string>>(reader, ordinal)
-                : (reader.IsDBNull(ordinal) ? new Option<string>() : reader.GetString(ordinal));
+                ? QueryChecker.Check<string>(reader, ordinal)
+                : (reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal));
 
         public static bool Boolean(this SqlDataReader reader, int ordinal)
             => QueryChecker != null ? QueryChecker.Check<bool>(reader, ordinal) : reader.GetBoolean(ordinal);
 
-        public static Option<bool> OptionBoolean(this SqlDataReader reader, int ordinal)
+        public static bool? NullableBoolean(this SqlDataReader reader, int ordinal)
             => QueryChecker != null
-                ? QueryChecker.Check<Option<bool>>(reader, ordinal)
-                : (reader.IsDBNull(ordinal) ? new Option<bool>() : reader.GetBoolean(ordinal));
+                ? QueryChecker.Check<bool?>(reader, ordinal)
+                : (reader.IsDBNull(ordinal) ? new bool?() : reader.GetBoolean(ordinal));
 
         /// <summary>
         /// Generates in runtime the code to retrieve the data from DataReader for all properties of type T.
@@ -137,17 +134,16 @@ namespace QueryLifting
 
         public static readonly Dictionary<Type, MethodInfo> MethodInfos = new[] {
             GetMethodInfo<Func<SqlDataReader, int, int>>((reader, i) => reader.Int32(i)),
-            GetMethodInfo<Func<SqlDataReader, int, Option<int>>>((reader, i) => reader.OptionInt32(i)),
+            GetMethodInfo<Func<SqlDataReader, int, int?>>((reader, i) => reader.NullableInt32(i)),
             GetMethodInfo<Func<SqlDataReader, int, decimal>>((reader, i) => reader.Decimal(i)),
-            GetMethodInfo<Func<SqlDataReader, int, Option<decimal>>>((reader, i) => reader.OptionDecimal(i)),
+            GetMethodInfo<Func<SqlDataReader, int, decimal?>>((reader, i) => reader.NullableDecimal(i)),
             GetMethodInfo<Func<SqlDataReader, int, Guid>>((reader, i) => reader.Guid(i)),
-            GetMethodInfo<Func<SqlDataReader, int, Option<Guid>>>((reader, i) => reader.OptionGuid(i)),
+            GetMethodInfo<Func<SqlDataReader, int, Guid?>>((reader, i) => reader.NullableGuid(i)),
             GetMethodInfo<Func<SqlDataReader, int, DateTime>>((reader, i) => reader.DateTime(i)),
-            GetMethodInfo<Func<SqlDataReader, int, Option<DateTime>>>((reader, i) => reader.OptionDateTime(i)),
+            GetMethodInfo<Func<SqlDataReader, int, DateTime?>>((reader, i) => reader.NullableDateTime(i)),
             GetMethodInfo<Func<SqlDataReader, int, string>>((reader, i) => reader.String(i)),
-            GetMethodInfo<Func<SqlDataReader, int, Option<string>>>((reader, i) => reader.OptionString(i)),
             GetMethodInfo<Func<SqlDataReader, int, bool>>(((reader, i) => reader.Boolean(i))),
-            GetMethodInfo<Func<SqlDataReader, int, Option<bool>>>((reader, i) => reader.OptionBoolean(i))
+            GetMethodInfo<Func<SqlDataReader, int, bool?>>((reader, i) => reader.NullableBoolean(i))
         }.ToDictionary(_ => _.ReturnType);
 
         private static class Cache<T>

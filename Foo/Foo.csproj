@@ -45,7 +45,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AnonymousTypes.cs" />
+    <Compile Include="DataTypes.cs" />
     <Compile Include="FooSqlUtil.cs" />
     <Compile Include="PaggingInfo.cs" />
     <Compile Include="Program.cs" />
