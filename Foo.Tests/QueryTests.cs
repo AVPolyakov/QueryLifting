@@ -127,6 +127,13 @@ namespace Foo.Tests
                     var args = method.GetParameters().Select(parameter => TestValues(parameter).First()).ToArray();
                     return new[] {method.Invoke(null, args)};
                 }
+                if (genericType == typeof (Cluster<>))
+                {            
+                    var method = GetMethodInfo<Func<object, Cluster<object>>>(_ => _.Cluster())
+                        .GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
+                    return method.GetParameters().GetAllCombinations(TestValues)
+	                    .Select(args => method.Invoke(null, args.ToArray()));
+                }
             }
             throw new ApplicationException($"Test value not found for parameter type `{parameterInfo.ParameterType}`");
         }
@@ -362,5 +369,30 @@ IF EXISTS ( SELECT  *
         }
 
         private const string QueryLiftingTemp = "QueryLiftingTemp";
+
+        [TestMethod]
+        public void GetAllCombinations()
+        {
+	        {
+		        var parameterInfos = new {
+			        A1 = new DateTime?(),
+			        A2 = new DateTime?(),
+			        A3 = new DateTime?(),
+			        A4 = new DateTime?(),
+			        A5 = new DateTime?(),
+		        }.GetType().GetConstructors().Single().GetParameters();
+		        Assert.AreEqual(32, parameterInfos.GetAllCombinations(TestValues).Count());
+	        }
+            {
+                var parameterInfos = new {
+                    A1 = new DateTime?().Cluster(),
+                    A2 = new DateTime?().Cluster(),
+                    A3 = new DateTime?().Cluster(),
+                    A4 = new DateTime?().Cluster(),
+                    A5 = new DateTime?().Cluster(),
+                }.GetType().GetConstructors().Single().GetParameters();
+		        Assert.AreEqual(10, parameterInfos.GetAllCombinations(TestValues).Count());
+	        }
+        }
     }
 }

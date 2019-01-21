@@ -288,6 +288,9 @@ namespace QueryLifting
         public static SqlParameter AddParam<T>(this SqlCommand command, string parameterName, Param<T> param)
             => ParamCache<T>.Func(command, parameterName, param.Value);
 
+        public static SqlParameter AddParam<T>(this SqlCommand command, string parameterName, Cluster<T> cluster)
+            => ParamCache<T>.Func(command, parameterName, cluster.Value);
+
         private static class ParamCache<T>
         {
             public static readonly Func<SqlCommand, string, T, SqlParameter> Func;
@@ -359,11 +362,15 @@ namespace QueryLifting
         {
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Param<>))
                 return paramMethod.MakeGenericMethod(type.GetGenericArguments());
-            else
-                return AddParamsMethods[type];
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Cluster<>))
+                return clusterParamMethod.MakeGenericMethod(type.GetGenericArguments());
+            return AddParamsMethods[type];
         }
 
         private static readonly MethodInfo paramMethod = GetMethodInfo<Func<SqlCommand, string, Param<object>, SqlParameter>>(
+                (command, name, value) => command.AddParam(name, value)).GetGenericMethodDefinition();
+
+        private static readonly MethodInfo clusterParamMethod = GetMethodInfo<Func<SqlCommand, string, Cluster<object>, SqlParameter>>(
                 (command, name, value) => command.AddParam(name, value)).GetGenericMethodDefinition();
 
         public static StringBuilder Append<T>(this StringBuilder builder, SqlCommand command, string text, T param)

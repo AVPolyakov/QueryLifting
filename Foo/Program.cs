@@ -30,6 +30,7 @@ namespace Foo
             ChoiceExample("test");
             ParentChildExample();
             ParentChildExample2();
+            ClusterExample(new DateTime(2015, 1, 1), new DateTime(2018, 1, 1));
         }
 
         private static void DataReaderExample(DateTime? date)
@@ -40,14 +41,15 @@ namespace Foo
 SELECT PostId, Text,  CreationDate
 FROM Post
 WHERE 1 = 1");
-                if (p.date.HasValue) builder.Append(command, @"
+                if (p.date.HasValue)
+                    builder.Append(command, @"
     AND CreationDate > @date", new {p.date});
                 command.CommandText = builder.ToString();
                 return command.Read(reader => {
                     Console.WriteLine("{0} {1} {2}", reader.Int32(reader.Ordinal("PostId")),
                         reader.String(reader.Ordinal("Text")),
                         reader.DateTime(reader.Ordinal("CreationDate")));
-                    return new {};
+                    return new { };
                 });
                 // ReSharper disable once ReturnValueOfPureMethodIsNotUsed
             }).ToList();
@@ -61,7 +63,8 @@ WHERE 1 = 1");
 SELECT PostId, Text,  CreationDate
 FROM Post
 WHERE 1 = 1");
-                if (p.date.HasValue) builder.Append(command, @"
+                if (p.date.HasValue)
+                    builder.Append(command, @"
     AND CreationDate > @date", new {p.date});
                 command.CommandText = builder.ToString();
                 return command.Read<PostInfo>();
@@ -80,12 +83,12 @@ WHERE 1 = 1");
         private static int InsertOrUpdate(int? id, PostData data)
         {
             var param = new {
-                data.Text, 
+                data.Text,
                 data.CreationDate
             };
             const string table = "Post";
             if (!id.HasValue)
-                return param.Apply(p => 
+                return param.Apply(p =>
                     InsertQuery(table, default(int), p)).Read().Single();
             else
             {
@@ -135,7 +138,8 @@ WHERE 1 = 1");
 SELECT PostId, Text,  CreationDate
 FROM Post
 WHERE 1 = 1");
-            if (date.HasValue) builder.Append(command, @"
+            if (date.HasValue)
+                builder.Append(command, @"
     AND CreationDate > @date", new {date});
             command.CommandText = builder.ToString();
             return command.Read<PostInfo>();
@@ -155,7 +159,8 @@ WHERE 1 = 1");
 SELECT PostId, Text,  CreationDate
 FROM Post
 WHERE 1 = 1");
-                    if (p.date.HasValue) builder.Append(command, @"
+                    if (p.date.HasValue)
+                        builder.Append(command, @"
     AND CreationDate > @date", new {p.date});
                 },
                 (builder, command) => builder.Append("CreationDate DESC, PostId"), p.offset, p.pageSize));
@@ -172,7 +177,8 @@ WHERE 1 = 1");
 SELECT PostId, Text,  CreationDate
 FROM Post
 WHERE 1 = 1");
-                    if (p.date.HasValue) builder.Append(command, @"
+                    if (p.date.HasValue)
+                        builder.Append(command, @"
     AND CreationDate > @date", new {p.date});
                 },
                 (builder, command) => builder.Append("CreationDate DESC, PostId"), p.offset, p.pageSize)).Read();
@@ -189,7 +195,8 @@ WHERE 1 = 1");
 SELECT PostId, Text,  CreationDate
 FROM Post
 WHERE 1 = 1");
-                if (p.date.HasValue) builder.Append(command, @"
+                if (p.date.HasValue)
+                    builder.Append(command, @"
     AND CreationDate > @date", new {date = p.date.Value});
                 command.CommandText = builder.ToString();
                 return command.Read<PostInfo>();
@@ -299,12 +306,37 @@ WHERE ParentId IN (SELECT ParentId FROM ({Text(child, command)}) T)")).Query<Par
                 Console.WriteLine($"{child.ChildId} {childParent[child.ParentId].ParentId}");
         }
 
+        private static void ClusterExample(DateTime? startDate, DateTime? endDate)
+        {
+            foreach (var record in new {
+                startDate = startDate.Cluster(),
+                endDate = endDate.Cluster()
+            }.Apply(p => {
+                var command = new SqlCommand();
+                var builder = new StringBuilder(@"
+SELECT PostId, Text,  CreationDate
+FROM Post
+WHERE 1 = 1");
+                if (p.startDate.Value.HasValue)
+                    builder.Append(command, @"
+    AND CreationDate >= @startDate", new {p.startDate});
+                if (p.endDate.Value.HasValue)
+                    builder.Append(command, @"
+    AND CreationDate <= @endDate", new {p.endDate});
+                command.CommandText = builder.ToString();
+                return command.Read<PostInfo>();
+            }))
+            {
+                Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
+            }
+        }
+
         public static void Init()
         {
             ConnectionStringFunc = () => ConnectionString;
-            AddParamsMethods.Add(typeof (MyEnum), GetMethodInfo<Func<SqlCommand, string, MyEnum, SqlParameter>>(
+            AddParamsMethods.Add(typeof(MyEnum), GetMethodInfo<Func<SqlCommand, string, MyEnum, SqlParameter>>(
                 (command, name, value) => command.AddParam(name, value)));
-            MethodInfos.Add(typeof (MyEnum?), GetMethodInfo<Func<SqlDataReader, int, MyEnum?>>(
+            MethodInfos.Add(typeof(MyEnum?), GetMethodInfo<Func<SqlDataReader, int, MyEnum?>>(
                 (reader, i) => reader.NullableMyEnum(i)));
         }
 
