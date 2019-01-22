@@ -8,6 +8,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using PdfSharp.Drawing;
 using QueryLifting;
@@ -27,20 +28,20 @@ namespace Foo.Tests
         }
 
         [TestMethod]
-        public void TestQueries()
+        public async Task TestQueries()
         {
-            TestQueries(delegate { });
+            await TestQueries(delegate { });
         }
 
-        private void TestQueries(Action<QueryInfo> onQuery)
+        private async Task TestQueries(Action<QueryInfo> onQuery)
         {
-            UsingQueryChecker(new QueryChecker(onQuery), () => {
+            await UsingQueryChecker(new QueryChecker(onQuery), () => {
                 foreach (var usage in new[] {typeof(Program)}.SelectMany(_ => _.Assembly.GetTypes()).ResolveUsages())
                 {
                     var methodInfo = usage.ResolvedMember as MethodInfo;
                     if (methodInfo != null &&
                         (methodInfo.IsGenericMethod && new[] {
-                             readMethod, readMethod2, queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod,
+                             queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod,
                              deleteQueryMethod, pagedQueriesMethod, pagedQueryMethod
                          }.Contains(methodInfo.GetGenericMethodDefinition()) ||
                          methodInfo == nonQueryMethod))
@@ -154,16 +155,10 @@ namespace Foo.Tests
 
         private static Func<T> CreateFunc<T>(T arg) => () => arg;
 
-        private static readonly MethodInfo readMethod = GetMethodInfo<Func<SqlCommand, string, int, string, IEnumerable<object>>>(
-            (command, connectionString, line, filePath) => command.Read<object>(connectionString, line, filePath)).GetGenericMethodDefinition();
-
-        private static readonly MethodInfo readMethod2 = GetMethodInfo<Func<SqlCommand, Func<SqlDataReader, object>, string, int, string, IEnumerable<object>>>(
-            (command, materializer, connectionString, line, filePath) => command.Read(materializer, connectionString, line, filePath)).GetGenericMethodDefinition();
-
-        private static readonly MethodInfo queryMethod = GetMethodInfo<Func<SqlCommand, string, int, string, Func<SqlDataReader, object>, Query<object>>>(
+        private static readonly MethodInfo queryMethod = GetMethodInfo<Func<SqlCommand, string, int, string, Func<SqlDataReader, Task<object>>, Query<object>>>(
             (command, connectionString, line, filePath, func) => command.Query(func, connectionString, line, filePath)).GetGenericMethodDefinition();
 
-        private static readonly MethodInfo queryMethod2 = GetMethodInfo<Func<SqlCommand, string, int, string, Func<SqlDataReader, object>, Query<IEnumerable<object>>>>(
+        private static readonly MethodInfo queryMethod2 = GetMethodInfo<Func<SqlCommand, string, int, string, Func<SqlDataReader, Task<object>>, Query<List<object>>>>(
             (command, connectionString, line, filePath, func) => command.Query<object>(connectionString, line, filePath)).GetGenericMethodDefinition();
 
         private static readonly MethodInfo insertQueryMethod = typeof(SqlUtil).GetMethod(nameof(InsertQuery));
@@ -179,12 +174,12 @@ namespace Foo.Tests
 
         private static readonly MethodInfo pagedQueryMethod = typeof(FooSqlUtil).GetMethod(nameof(PagedQuery));
 
-        private static void UsingQueryChecker(IQueryChecker queryChecker, Action action)
+        private static async Task UsingQueryChecker(IQueryChecker queryChecker, Action action)
         {
             SqlUtil.QueryChecker = queryChecker;
             try
             {
-                action();
+	            await Task.Run(action);
             }
             finally
             {
@@ -193,10 +188,10 @@ namespace Foo.Tests
         }
 
         [TestMethod]
-        public void FindUsages()
+        public async Task FindUsages()
         {
             var queries = new Dictionary<Tuple<string, int>, HashSet<Tuple<string, string>>>();
-            TestQueries(queryInfo => {
+            await TestQueries(queryInfo => {
                 if (queryInfo.Command.CommandType == CommandType.StoredProcedure) return;
                 {
                     {

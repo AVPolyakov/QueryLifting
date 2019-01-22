@@ -9,12 +9,13 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace QueryLifting
 {
     public static class SqlUtil
     {
-        public static Query<T> Query<T>(this SqlCommand command, Func<SqlDataReader, T> readerFunc, Option<string> connectionString = new Option<string>(),
+        public static Query<T> Query<T>(this SqlCommand command, Func<SqlDataReader, Task<T>> readerFunc, Option<string> connectionString = new Option<string>(),
             [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
             => new Query<T>(command, readerFunc, connectionString, line, filePath);
 
@@ -22,66 +23,45 @@ namespace QueryLifting
             [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
             => new NonQuery(command, connectionString, line, filePath);
 
-        public static IEnumerable<T> Read<T>(this SqlCommand command, Func<SqlDataReader, T> materializer,
-            Option<string> connectionString = new Option<string>(),
-            [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
-            => command.Query(reader => reader.Read(() => materializer(reader)), connectionString, line, filePath).Read();
-
-        public static IEnumerable<T> Read<T>(this SqlCommand command, Option<string> connectionString = new Option<string>(),
-            [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
-            => command.Query<T>(connectionString, line, filePath).Read();
-
-        public static Query<IEnumerable<T>> Query<T>(this SqlCommand command, Option<string> connectionString = new Option<string>(),
+        public static Query<List<T>> Query<T>(this SqlCommand command, Option<string> connectionString = new Option<string>(),
             [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
             => command.Query(Read<T>, connectionString, line, filePath);
 
-        public static IEnumerable<T> Read<T>(this SqlDataReader reader) => Read(reader, reader.GetMaterializer<T>());
+        public static Task<List<T>> Read<T>(this SqlDataReader reader) => Read(reader, reader.GetMaterializer<T>());
 
-        public static IEnumerable<T> Read<T>(this SqlDataReader reader, Func<T> materializer)
-            => QueryChecker != null ? QueryChecker.Read(reader, materializer) : GetEnumerable(reader, materializer);
+        public static Task<List<T>> Read<T>(this SqlDataReader reader, Func<T> materializer)
+            => QueryChecker != null ? QueryChecker.Read(reader, materializer) : GetList(reader, materializer);
 
-        private static IEnumerable<T> GetEnumerable<T>(SqlDataReader reader, Func<T> materializer)
+        private static async Task<List<T>> GetList<T>(SqlDataReader reader, Func<T> materializer)
         {
-            while (reader.Read()) yield return materializer();
-        }
-
-        public static IEnumerable<T> ReadNext<T>(this SqlDataReader reader)
-        {
-            reader.NextResult();
-            return reader.Read<T>();
+            var list = new List<T>();
+            while (await reader.ReadAsync())
+                list.Add(materializer());
+            return list;
         }
 
         public static Func<string> ConnectionStringFunc = () => { throw new ApplicationException("Set the connection string func at application start."); };
 
-        public static IEnumerable<T> Read<T>(this Query<IEnumerable<T>> query)
+        public static async Task<T> Single<T>(this Query<List<T>> query) => (await query.Read()).Single();
+
+        public static async Task<T> Read<T>(this Query<T> query)
         {
             using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, ConnectionStringFunc)))
             {
                 query.Command.Connection = connection;
-                connection.Open();
-                using (var reader = query.Command.ExecuteReader())
-                    foreach (var item in query.ReaderFunc(reader)) yield return item;
+                await connection.OpenAsync();
+                using (var reader = await query.Command.ExecuteReaderAsync())
+                    return await query.ReaderFunc(reader);
             }
         }
 
-        public static T Read<T>(this Query<T> query)
+        public static async Task<int> Execute(this NonQuery query)
         {
             using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, ConnectionStringFunc)))
             {
                 query.Command.Connection = connection;
-                connection.Open();
-                using (var reader = query.Command.ExecuteReader())
-                    return query.ReaderFunc(reader);
-            }
-        }
-
-        public static int Execute(this NonQuery query)
-        {
-            using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, ConnectionStringFunc)))
-            {
-                query.Command.Connection = connection;
-                connection.Open();
-                return query.Command.ExecuteNonQuery();
+                await connection.OpenAsync();
+                return await query.Command.ExecuteNonQueryAsync();
             }
         }
 
@@ -397,7 +377,7 @@ namespace QueryLifting
             }
         }
 
-        public static Query<IEnumerable<TKey>> InsertQuery<T, TKey>(string table, TKey prototype, T p, Option<string> connectionString = new Option<string>(), [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
+        public static Query<List<TKey>> InsertQuery<T, TKey>(string table, TKey prototype, T p, Option<string> connectionString = new Option<string>(), [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
         {
             var command = new SqlCommand();
             var columns = GetColumns(table, connectionString);

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
+using System.Threading.Tasks;
 using QueryLifting;
 
 namespace Foo.Tests
@@ -28,7 +29,7 @@ namespace Foo.Tests
                     query.Command.Connection = connection;
                     connection.Open();
                     using (var reader = query.Command.ExecuteReader(CommandBehavior.SchemaOnly))
-                        query.ReaderFunc(reader);
+                        query.ReaderFunc(reader).Wait();
                 }
             }
             catch (Exception e)
@@ -42,7 +43,7 @@ namespace Foo.Tests
             return new ApplicationException($"{e.Message}{(e.Message.EndsWith(".") ? "" : ".") } Information about query Line: {info.Line}, File: {info.FilePath} QueryText: {info.Command.CommandText}", e);
         }
 
-        public IEnumerable<T> Read<T>(SqlDataReader reader, Func<T> materializer)
+        public Task<List<T>> Read<T>(SqlDataReader reader, Func<T> materializer)
         {
             var ordinals = new HashSet<int>();
             if (!ordinalDictionary.TryAdd(reader, ordinals)) throw new ApplicationException();
@@ -59,7 +60,7 @@ namespace Foo.Tests
                 WriteDataRetrievingCode(reader);
                 throw new ApplicationException("Field count mismatch");
             }
-            return Enumerable.Empty<T>();
+            return Task.FromResult(new List<T>());
         }
 
         public T Check<T>(SqlDataReader reader, int ordinal)
@@ -138,53 +139,52 @@ namespace Foo.Tests
             onQuery(info);
             try
             {
-
-            using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, SqlUtil.ConnectionStringFunc)))
-                if (query.Command.CommandType == CommandType.StoredProcedure)
-                {
-                    var command = new SqlCommand(query.Command.CommandText, connection) { CommandType = CommandType.StoredProcedure };
-                    connection.Open();
-                    SqlCommandBuilder.DeriveParameters(command);
-                    var dictionary = command.Parameters.Cast<SqlParameter>().ToDictionary(_ => _.ParameterName);
-                    foreach (SqlParameter parameter in query.Command.Parameters)
+                using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, SqlUtil.ConnectionStringFunc)))
+                    if (query.Command.CommandType == CommandType.StoredProcedure)
                     {
-	                    if (dictionary.TryGetValue(parameter.ParameterName, out var value))
+                        var command = new SqlCommand(query.Command.CommandText, connection) {CommandType = CommandType.StoredProcedure};
+                        connection.Open();
+                        SqlCommandBuilder.DeriveParameters(command);
+                        var dictionary = command.Parameters.Cast<SqlParameter>().ToDictionary(_ => _.ParameterName);
+                        foreach (SqlParameter parameter in query.Command.Parameters)
                         {
-                            if (parameter.SqlDbType != value.SqlDbType)
-                                if (parameter.SqlDbType == SqlDbType.NVarChar && value.SqlDbType == SqlDbType.VarChar)
+                            if (dictionary.TryGetValue(parameter.ParameterName, out var value))
+                            {
+                                if (parameter.SqlDbType != value.SqlDbType)
+                                    if (parameter.SqlDbType == SqlDbType.NVarChar && value.SqlDbType == SqlDbType.VarChar)
+                                    {
+                                        //no-op
+                                    }
+                                    else
+                                        throw GetInnerException();
+                                if (value.Size == -1)
                                 {
-                                    //no-op
+                                    if (parameter.Size != -1) throw GetInnerException();
                                 }
                                 else
-                                    throw GetInnerException();
-                            if (value.Size == -1)
-                            {
-                                if (parameter.Size != -1) throw GetInnerException();
+                                {
+                                    if (parameter.Size == -1)
+                                    {
+                                        //no-op
+                                    }
+                                    else
+                                    {
+                                        if (parameter.Size < value.Size) throw GetInnerException();
+                                    }
+                                }
                             }
                             else
-                            {
-                                if (parameter.Size == -1)
-                                {
-                                    //no-op
-                                }
-                                else
-                                {
-                                    if (parameter.Size < value.Size) throw GetInnerException();
-                                }
-                            }
+                                throw GetInnerException();
                         }
-                        else
-                            throw GetInnerException();
                     }
-                }
-                else
-                {
-                    query.Command.Connection = connection;
-                    connection.Open();
-                    using (query.Command.ExecuteReader(CommandBehavior.SchemaOnly))
+                    else
                     {
+                        query.Command.Connection = connection;
+                        connection.Open();
+                        using (query.Command.ExecuteReader(CommandBehavior.SchemaOnly))
+                        {
+                        }
                     }
-                }
             }
             catch (Exception e)
             {

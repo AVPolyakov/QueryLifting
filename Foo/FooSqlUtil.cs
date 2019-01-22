@@ -5,6 +5,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading.Tasks;
 using QueryLifting;
 using static QueryLifting.SqlUtil;
 
@@ -20,7 +21,7 @@ namespace Foo
                 ? QueryChecker.Check<MyEnum?>(reader, ordinal)
                 : (reader.IsDBNull(ordinal) ? new MyEnum?() : (MyEnum) reader.GetInt32(ordinal));
 
-        public static PaggingInfo<IEnumerable<TData>, Query<int>> PagedQueries<TData>(
+        public static PaggingInfo<Query<List<TData>>, Query<int>> PagedQueries<TData>(
             Action<StringBuilder, SqlCommand> query, Action<StringBuilder, SqlCommand> orderBy, int offset, int pageSize,
             [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
         {
@@ -28,10 +29,10 @@ namespace Foo
 {Text(query, command)}
 ORDER BY
 {Text(orderBy, command)}
-OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY", new {offset, pageSize})).Read<TData>(line: line, filePath: filePath),
+OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY", new {offset, pageSize})).Query<TData>(line: line, filePath: filePath),
                 GetCommand((builder, command) => builder.Append($@"
-SELECT COUNT(*) FROM ({Text(query, command)}) T")).Query(reader => {
-                    var enumerable = reader.Read<int?>().Select(_ => _.Value);
+SELECT COUNT(*) FROM ({Text(query, command)}) T")).Query(async reader => {
+                    var enumerable = (await reader.Read<int?>()).Select(_ => _.Value);
                     return QueryChecker == null ? enumerable.Single() : 0;
                 }, line: line, filePath: filePath));
         }
@@ -49,27 +50,31 @@ ORDER BY
 OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY;
 SELECT COUNT(*) FROM ({queryText}) T;",
                     new {offset, pageSize});
-            }).Query(reader => PaggingInfo.Create(
-                reader.Read<TData>().ToList(), 
-                QueryChecker == null ? reader.ReadNext<int?>().Select(_ => _.Value).Single() : 0),
+            }).Query(async reader => {
+                    var data = await reader.Read<TData>();
+                    await reader.NextResultAsync();
+                    return PaggingInfo.Create(
+                        data,
+                        QueryChecker == null ? (await reader.Read<int?>()).Select(_ => _.Value).Single() : 0);
+                },
                 line: line, filePath: filePath);
         }
 
-        public static T Transaction<T>(IsolationLevel isolationLevel, Func<SqlTransaction, T> func)
+        public static async Task<T> Transaction<T>(IsolationLevel isolationLevel, Func<SqlTransaction, Task<T>> func)
         {
             using (var connection = new SqlConnection(Program.ConnectionString))
             {
-                connection.Open();
-                return func(connection.BeginTransaction(isolationLevel));
+                await connection.OpenAsync();
+                return await func(connection.BeginTransaction(isolationLevel));
             }
         }
 
-        public static IEnumerable<T> Read<T>(this Query<IEnumerable<T>> query, SqlTransaction transaction)
+        public static async Task<List<T>> Read<T>(this Query<List<T>> query, SqlTransaction transaction)
         {
             query.Command.Connection = transaction.Connection;
             query.Command.Transaction = transaction;
-            using (var reader = query.Command.ExecuteReader())
-                foreach (var item in query.ReaderFunc(reader)) yield return item;
+            using (var reader = await query.Command.ExecuteReaderAsync())
+                return await query.ReaderFunc(reader);
         }
     }
 }
