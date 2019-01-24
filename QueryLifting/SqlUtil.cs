@@ -261,9 +261,11 @@ namespace QueryLifting
             var parameter = value == null
                 ? command.Parameters.Add(new SqlParameter(parameterName, SqlDbType.NVarChar) {Value = DBNull.Value})
                 : command.Parameters.AddWithValue(parameterName, value);
-            parameter.Size = -1;
+            if (parameter.Size < DefaultLength && parameter.Size >= 0) parameter.Size = DefaultLength;
             return parameter;
         }
+
+        public const int DefaultLength = 4000;
 
         public static SqlParameter AddParam<T>(this SqlCommand command, string parameterName, Param<T> param)
             => ParamCache<T>.Func(command, parameterName, param.Value);
