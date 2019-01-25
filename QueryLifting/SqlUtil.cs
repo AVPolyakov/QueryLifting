@@ -272,6 +272,13 @@ namespace QueryLifting
             return parameter;
         }
 
+        public static SqlParameter AddParam(this SqlCommand command, string parameterName, Varchar value)
+        {
+            var parameter = command.AddParam(parameterName, value.Value);
+            parameter.SqlDbType = SqlDbType.VarChar;
+            return parameter;
+        }
+
         public const int DefaultLength = 4000;
 
         public static SqlParameter AddParam<T>(this SqlCommand command, string parameterName, Param<T> param)
@@ -318,6 +325,7 @@ namespace QueryLifting
             GetMethodInfo<Func<SqlCommand, string, DateTime, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, DateTime?, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, string, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
+            GetMethodInfo<Func<SqlCommand, string, Varchar, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
         }.ToDictionary(_ => _.GetParameters()[2].ParameterType);
 
         private static class AddParamsCache<T>

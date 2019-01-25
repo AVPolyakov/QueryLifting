@@ -11,10 +11,7 @@ namespace QueryLifting
 	{
 		public readonly T Value;
 
-		public Cluster(T value)
-		{
-			Value = value;
-		}
+		public Cluster(T value) => Value = value;
 	}
 
 	public static class ClusterExtensions

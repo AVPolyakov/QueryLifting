@@ -4,10 +4,7 @@ namespace QueryLifting
     {
         internal T Value { get; }
 
-        public Param(T value)
-        {
-            Value = value;
-        }
+        public Param(T value) => Value = value;
     }
 
     public static class ParamExtensions
