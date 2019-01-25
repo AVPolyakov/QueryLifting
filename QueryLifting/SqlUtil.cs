@@ -246,7 +246,14 @@ namespace QueryLifting
                 : command.Parameters.Add(new SqlParameter(parameterName, SqlDbType.UniqueIdentifier) {Value = DBNull.Value});
 
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, decimal value)
-            => command.Parameters.AddWithValue(parameterName, value);
+        {
+            var parameter = command.Parameters.AddWithValue(parameterName, value);
+            const byte defaultPrecision = 38;
+            if (parameter.Precision < defaultPrecision) parameter.Precision = defaultPrecision;
+            const byte defaultScale = 8;
+            if (parameter.Scale < defaultScale) parameter.Scale = 8;
+            return parameter;
+        }
 
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, DateTime? value)
             => value.HasValue

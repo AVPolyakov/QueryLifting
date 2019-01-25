@@ -335,14 +335,14 @@ WHERE   referenced_entity_name = @referenced_entity_name");
                 case SqlDbType.Int:
                     return "INT";
                 case SqlDbType.NVarChar:
-                    if (parameter.Size < 0 || parameter.Size > SqlUtil.DefaultLength)
+                    if (parameter.Size < 0 || parameter.Size > DefaultLength)
                         return "NVARCHAR(MAX)";
                     else
                         return $"NVARCHAR({parameter.Size})";
                 case SqlDbType.DateTime:
                     return "DATETIME";
                 case SqlDbType.Decimal:
-                    return "DECIMAL";
+                    return $"DECIMAL({parameter.Precision}, {parameter.Scale})";
                 default:
                     throw new ApplicationException();
             }
