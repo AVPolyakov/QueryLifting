@@ -40,7 +40,7 @@ namespace Foo.Tests
 
         private static ApplicationException GetException(Exception e, QueryInfo info)
         {
-            return new ApplicationException($"{e.Message}{(e.Message.EndsWith(".") ? "" : ".") } Information about query Line: {info.Line}, File: {info.FilePath} QueryText: {info.Command.CommandText}", e);
+            return new ApplicationException($"{e.Message}{(e.Message.EndsWith(".") ? "" : ".") } Information about query File and line: {info.FilePath}:line {info.Line}, QueryText: {info.Command.CommandText}", e);
         }
 
         public Task<List<T>> Read<T>(SqlDataReader reader, Func<T> materializer)
