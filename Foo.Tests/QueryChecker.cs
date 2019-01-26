@@ -68,7 +68,7 @@ namespace Foo.Tests
 	        if (!ordinalDictionary.TryGetValue(reader, out var ordinals)) throw new ApplicationException();
             ordinals.Add(ordinal);
             var type = typeof (T);
-            ApplicationException GetInnerException() => new ApplicationException($"Type mismatch for field '{reader.GetName(ordinal)}'");
+            ApplicationException GetInnerException() => new ApplicationException($"Type mismatch for field '{reader.GetName(ordinal)}', type in query {reader.GetFieldType(ordinal)}");
             if (AllowDBNull(reader, ordinal))
             {
 	            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>) &&
