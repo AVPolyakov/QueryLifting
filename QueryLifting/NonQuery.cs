@@ -16,7 +16,7 @@ namespace QueryLifting
             ConnectionString = connectionString;
             Line = line;
             FilePath = filePath;
-            if (SqlUtil.QueryChecker != null) SqlUtil.QueryChecker.NonQuery(this);
+            if (SqlHelper.QueryChecker != null) SqlHelper.QueryChecker.NonQuery(this);
         }
     }
 }

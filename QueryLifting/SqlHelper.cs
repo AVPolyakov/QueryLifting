@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace QueryLifting
 {
-    public static class SqlUtil
+    public static class SqlHelper
     {
         public static Query<T> Query<T>(this SqlCommand command, Func<SqlDataReader, Task<T>> readerFunc, Option<string> connectionString = new Option<string>(),
             [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
@@ -208,7 +208,7 @@ namespace QueryLifting
 
         private static readonly ModuleBuilder moduleBuilder;
 
-        static SqlUtil()
+        static SqlHelper()
         {
             var assemblyName = new AssemblyName {Name = System.Guid.NewGuid().ToString("N")};
             moduleBuilder = AssemblyBuilder.DefineDynamicAssembly(assemblyName,

@@ -7,8 +7,8 @@ using System.Text;
 using System.Threading.Tasks;
 using QueryLifting;
 using Xunit;
-using static QueryLifting.SqlUtil;
-using static Foo.FooSqlUtil;
+using static QueryLifting.SqlHelper;
+using static Foo.FooSqlHelper;
 
 namespace Foo
 {

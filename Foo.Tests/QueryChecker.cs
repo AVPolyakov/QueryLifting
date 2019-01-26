@@ -24,7 +24,7 @@ namespace Foo.Tests
             onQuery(info);
             try
             {
-                using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, SqlUtil.ConnectionStringFunc)))
+                using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, SqlHelper.ConnectionStringFunc)))
                 {
                     query.Command.Connection = connection;
                     connection.Open();
@@ -139,7 +139,7 @@ namespace Foo.Tests
             onQuery(info);
             try
             {
-                using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, SqlUtil.ConnectionStringFunc)))
+                using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, SqlHelper.ConnectionStringFunc)))
                     if (query.Command.CommandType == CommandType.StoredProcedure)
                     {
                         var command = new SqlCommand(query.Command.CommandText, connection) {CommandType = CommandType.StoredProcedure};

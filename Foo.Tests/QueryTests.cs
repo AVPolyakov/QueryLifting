@@ -14,8 +14,8 @@ using PdfSharp.Pdf;
 using QueryLifting;
 using Xunit;
 // ReSharper disable once RedundantUsingDirective
-using static Foo.FooSqlUtil;
-using static QueryLifting.SqlUtil;
+using static Foo.FooSqlHelper;
+using static QueryLifting.SqlHelper;
 using static Foo.Program;
 
 namespace Foo.Tests
@@ -161,29 +161,29 @@ namespace Foo.Tests
         private static readonly MethodInfo queryMethod2 = GetMethodInfo<Func<SqlCommand, string, int, string, Func<SqlDataReader, Task<object>>, Query<List<object>>>>(
             (command, connectionString, line, filePath, func) => command.Query<object>(connectionString, line, filePath)).GetGenericMethodDefinition();
 
-        private static readonly MethodInfo insertQueryMethod = typeof(SqlUtil).GetMethod(nameof(InsertQuery));
+        private static readonly MethodInfo insertQueryMethod = typeof(SqlHelper).GetMethod(nameof(InsertQuery));
 
-        private static readonly MethodInfo updateQueryMethod = typeof(SqlUtil).GetMethod(nameof(UpdateQuery));
+        private static readonly MethodInfo updateQueryMethod = typeof(SqlHelper).GetMethod(nameof(UpdateQuery));
 
-        private static readonly MethodInfo deleteQueryMethod = typeof(SqlUtil).GetMethod(nameof(DeleteQuery));
+        private static readonly MethodInfo deleteQueryMethod = typeof(SqlHelper).GetMethod(nameof(DeleteQuery));
 
         private static readonly MethodInfo nonQueryMethod = GetMethodInfo<Action<SqlCommand, string, int, string>>(
             (command, connectionString, line, filePath) => command.NonQuery(connectionString, line, filePath));
 
-        private static readonly MethodInfo pagedQueriesMethod = typeof(FooSqlUtil).GetMethod(nameof(PagedQueries));
+        private static readonly MethodInfo pagedQueriesMethod = typeof(FooSqlHelper).GetMethod(nameof(PagedQueries));
 
-        private static readonly MethodInfo pagedQueryMethod = typeof(FooSqlUtil).GetMethod(nameof(PagedQuery));
+        private static readonly MethodInfo pagedQueryMethod = typeof(FooSqlHelper).GetMethod(nameof(PagedQuery));
 
         private static async Task UsingQueryChecker(IQueryChecker queryChecker, Action action)
         {
-            SqlUtil.QueryChecker = queryChecker;
+            SqlHelper.QueryChecker = queryChecker;
             try
             {
 	            await Task.Run(action);
             }
             finally
             {
-                SqlUtil.QueryChecker = null;
+                SqlHelper.QueryChecker = null;
             }
         }
 

@@ -20,7 +20,7 @@ namespace QueryLifting
             ConnectionString = connectionString;
             Line = line;
             FilePath = filePath;
-            if (SqlUtil.QueryChecker != null) SqlUtil.QueryChecker.Query(this);
+            if (SqlHelper.QueryChecker != null) SqlHelper.QueryChecker.Query(this);
         }
     }
 }
