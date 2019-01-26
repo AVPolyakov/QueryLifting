@@ -5,8 +5,8 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using QueryLifting;
+using Xunit;
 using static QueryLifting.SqlUtil;
 using static Foo.FooSqlUtil;
 
@@ -104,24 +104,24 @@ WHERE 1 = 1");
             {
                 id = await InsertOrUpdate(null, new PostData {Text = "Test", CreationDate = DateTime.Now});
                 Console.WriteLine(id);
-                Assert.AreEqual("Test",
+                Assert.Equal("Test",
                     await new {id}.Apply(p => new SqlCommand("SELECT Text FROM Post WHERE PostId = @Id").AddParams(p)
                         .Query<string>()).Single());
             }
             {
                 await InsertOrUpdate(id, new PostData {Text = "Test2", CreationDate = DateTime.Now});
-                Assert.AreEqual("Test2",
+                Assert.Equal("Test2",
                     await new {id}.Apply(p => new SqlCommand("SELECT Text FROM Post WHERE PostId = @Id").AddParams(p)
                         .Query<string>()).Single());
             }
             {
                 var rowsNumber = await new {PostId = id}.Apply(p =>
                     DeleteQuery("Post", p)).Execute();
-                Assert.AreEqual(1, rowsNumber);
+                Assert.Equal(1, rowsNumber);
                 Console.WriteLine(rowsNumber);
-                Assert.AreEqual(0,
-                    (await new {id}.Apply(p => new SqlCommand("SELECT Text FROM Post WHERE PostId = @Id").AddParams(p)
-                        .Query<string>()).Read()).Count);
+                Assert.Empty(
+                    await new {id}.Apply(p => new SqlCommand("SELECT Text FROM Post WHERE PostId = @Id").AddParams(p)
+                        .Query<string>()).Read());
             }
         }
 
@@ -241,7 +241,7 @@ WHERE CreationDate > @date").AddParams(new {date = p.date()}).Query<PostInfo>())
         {
             var single = await new {a = MyEnum.A}
                 .Apply(p => new SqlCommand(@"SELECT @a AS a").AddParams(p).Query<MyEnum?>()).Single();
-            Assert.AreEqual(MyEnum.A, single);
+            Assert.Equal(MyEnum.A, single);
         }
 
         private static async Task ParentChildExample(int maxParentId = 10)

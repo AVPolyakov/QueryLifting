@@ -9,31 +9,31 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using PdfSharp.Drawing;
+using PdfSharp.Pdf;
 using QueryLifting;
+using Xunit;
+// ReSharper disable once RedundantUsingDirective
 using static Foo.FooSqlUtil;
 using static QueryLifting.SqlUtil;
 using static Foo.Program;
 
 namespace Foo.Tests
 {
-    [TestClass]
     public class QueryTests
     {
-        [AssemblyInitialize]
-        public static void OnStartup(TestContext context)
+        static QueryTests()
         {
             Init();
         }
 
-        [TestMethod]
+        [Fact]
         public async Task TestQueries()
         {
-            await TestQueries(delegate { });
+            await IterateQueries(delegate { });
         }
 
-        private async Task TestQueries(Action<QueryInfo> onQuery)
+        private async Task IterateQueries(Action<QueryInfo> onQuery)
         {
             await UsingQueryChecker(new QueryChecker(onQuery), () => {
                 foreach (var usage in new[] {typeof(Program)}.SelectMany(_ => _.Assembly.GetTypes()).ResolveUsages())
@@ -187,11 +187,11 @@ namespace Foo.Tests
             }
         }
 
-        [TestMethod]
-        public async Task FindUsages()
+        [Fact]
+        public async Task FindUsagesTest()
         {
             var queries = new Dictionary<Tuple<string, int>, HashSet<Tuple<string, string>>>();
-            await TestQueries(queryInfo => {
+            await IterateQueries(queryInfo => {
                 if (queryInfo.Command.CommandType == CommandType.StoredProcedure) return;
                 {
                     {
@@ -224,14 +224,14 @@ AS
             {
                 var file = Path.GetFileName(usage.Item1);
                 section.Add(new SharpLayout.Paragraph()
-                    .Add($"{file}, Ln {usage.Item2}", new XFont("Consolas", 9.5),
+                    .Add($"{file}, Ln {usage.Item2}", new SharpLayout.Font("Consolas", 9.5, XFontStyle.Regular, PdfOptions),
                         line: usage.Item2, filePath: usage.Item1));
                 Console.WriteLine($"{file}, Ln {usage.Item2}");
             }
             StartLiveViewer(document.SavePng(0, "Temp.png", 120), true);
         }
 
-        public static void StartLiveViewer(string fileName, bool alwaysShowWindow, bool findId = true)
+        private static void StartLiveViewer(string fileName, bool alwaysShowWindow, bool findId = true)
         {
             var processes = Process.GetProcessesByName("LiveViewer");
             if (processes.Length <= 0)
@@ -257,6 +257,8 @@ AS
                     SetForegroundWindow(processes[0].MainWindowHandle);
             }
         }
+
+        private static XPdfFontOptions PdfOptions => new XPdfFontOptions(PdfFontEncoding.Unicode);
 
         private static string Ide => vs;
 
@@ -365,7 +367,7 @@ IF EXISTS ( SELECT  *
 
         private const string QueryLiftingTemp = "QueryLiftingTemp";
 
-        [TestMethod]
+        [Fact]
         public void GetAllCombinations()
         {
 	        {
@@ -376,7 +378,7 @@ IF EXISTS ( SELECT  *
 			        A4 = new DateTime?(),
 			        A5 = new DateTime?(),
 		        }.GetType().GetConstructors().Single().GetParameters();
-		        Assert.AreEqual(32, parameterInfos.GetAllCombinations(TestValues).Count());
+		        Assert.Equal(32, parameterInfos.GetAllCombinations(TestValues).Count());
 	        }
             {
                 var parameterInfos = new {
@@ -386,7 +388,7 @@ IF EXISTS ( SELECT  *
                     A4 = new DateTime?().Cluster(),
                     A5 = new DateTime?().Cluster(),
                 }.GetType().GetConstructors().Single().GetParameters();
-		        Assert.AreEqual(10, parameterInfos.GetAllCombinations(TestValues).Count());
+		        Assert.Equal(10, parameterInfos.GetAllCombinations(TestValues).Count());
 	        }
         }
     }

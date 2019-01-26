@@ -1,9 +1,8 @@
 using System;
-using System.CodeDom;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using Microsoft.CSharp;
 
 namespace QueryLifting
 {
@@ -25,14 +24,59 @@ namespace QueryLifting
             return result;
         }
 
+        /// <summary>
+        /// https://stackoverflow.com/a/33529925
+        /// </summary>
         public static string GetCSharpName(this Type type)
         {
-            using (var provider = new CSharpCodeProvider())
+            if (_typeToFriendlyName.TryGetValue(type, out var friendlyName))
             {
-                var output = provider.GetTypeOutput(new CodeTypeReference(type));
-                var ns = $"{type.Namespace}.";
-                return output.StartsWith(ns) ? output.Substring(ns.Length) : output;
+                return friendlyName;
             }
+
+            friendlyName = type.Name;
+            if (type.IsGenericType)
+            {
+                int backtick = friendlyName.IndexOf('`');
+                if (backtick > 0)
+                {
+                    friendlyName = friendlyName.Remove(backtick);
+                }
+                friendlyName += "<";
+                Type[] typeParameters = type.GetGenericArguments();
+                for (int i = 0; i < typeParameters.Length; i++)
+                {
+                    string typeParamName = typeParameters[i].GetCSharpName();
+                    friendlyName += (i == 0 ? typeParamName : ", " + typeParamName);
+                }
+                friendlyName += ">";
+            }
+
+            if (type.IsArray)
+            {
+                return type.GetElementType().GetCSharpName() + "[]";
+            }
+
+            return friendlyName;
         }
+
+        private static readonly Dictionary<Type, string> _typeToFriendlyName = new Dictionary<Type, string> {
+            {typeof(string), "string"},
+            {typeof(object), "object"},
+            {typeof(bool), "bool"},
+            {typeof(byte), "byte"},
+            {typeof(char), "char"},
+            {typeof(decimal), "decimal"},
+            {typeof(double), "double"},
+            {typeof(short), "short"},
+            {typeof(int), "int"},
+            {typeof(long), "long"},
+            {typeof(sbyte), "sbyte"},
+            {typeof(float), "float"},
+            {typeof(ushort), "ushort"},
+            {typeof(uint), "uint"},
+            {typeof(ulong), "ulong"},
+            {typeof(void), "void"}
+        };
     }
 }

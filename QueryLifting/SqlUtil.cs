@@ -148,7 +148,6 @@ namespace QueryLifting
                     ilGenerator.Emit(OpCodes.Ldc_I4_0);
                     ilGenerator.EmitCall(methodInfo.IsVirtual ? OpCodes.Callvirt : OpCodes.Call, methodInfo, null);
                     ilGenerator.Emit(OpCodes.Ret);
-                    dynamicMethod.DefineParameter(1, ParameterAttributes.In, "arg1");
                     var @delegate = (Func<SqlDataReader, T>) dynamicMethod.CreateDelegate(typeof (Func<SqlDataReader, T>));
                     func = reader => () => @delegate(reader);
                 }
@@ -177,7 +176,7 @@ namespace QueryLifting
                     }
                     generator.Emit(OpCodes.Ldloc_0);
                     generator.Emit(OpCodes.Ret);
-                    var type = typeBuilder.CreateType();
+                    var type = typeBuilder.CreateTypeInfo();
                     var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), typeof (IMaterializer<T>),
                         new[] {typeof (SqlDataReader)}, true);
                     var ilGenerator = dynamicMethod.GetILGenerator();
@@ -194,7 +193,6 @@ namespace QueryLifting
                     }
                     ilGenerator.Emit(OpCodes.Ldloc_0);
                     ilGenerator.Emit(OpCodes.Ret);
-                    dynamicMethod.DefineParameter(1, ParameterAttributes.In, "arg1");
                     var @delegate = (Func<SqlDataReader, IMaterializer<T>>) dynamicMethod.CreateDelegate(typeof (Func<SqlDataReader, IMaterializer<T>>));
                     func = reader => {
                         var materializer = @delegate(reader);
@@ -213,7 +211,7 @@ namespace QueryLifting
         static SqlUtil()
         {
             var assemblyName = new AssemblyName {Name = System.Guid.NewGuid().ToString("N")};
-            moduleBuilder = AppDomain.CurrentDomain.DefineDynamicAssembly(assemblyName,
+            moduleBuilder = AssemblyBuilder.DefineDynamicAssembly(assemblyName,
                 AssemblyBuilderAccess.Run).DefineDynamicModule(assemblyName.Name);
         }
 
@@ -301,9 +299,6 @@ namespace QueryLifting
                 ilGenerator.Emit(OpCodes.Ldarg_2);
                 ilGenerator.EmitCall(OpCodes.Call, GetAddParamMethod(typeof (T)), null);
                 ilGenerator.Emit(OpCodes.Ret);
-                dynamicMethod.DefineParameter(1, ParameterAttributes.In, "command");
-                dynamicMethod.DefineParameter(2, ParameterAttributes.In, "parameterName");
-                dynamicMethod.DefineParameter(3, ParameterAttributes.In, "value");
                 Func = (Func<SqlCommand, string, T, SqlParameter>)
                     dynamicMethod.CreateDelegate(typeof (Func<SqlCommand, string, T, SqlParameter>));
             }
@@ -348,8 +343,6 @@ namespace QueryLifting
                     ilGenerator.Emit(OpCodes.Pop);
                 }
                 ilGenerator.Emit(OpCodes.Ret);
-                dynamicMethod.DefineParameter(1, ParameterAttributes.In, "command");
-                dynamicMethod.DefineParameter(2, ParameterAttributes.In, "p");
                 Action = (Action<SqlCommand, T>)
                     dynamicMethod.CreateDelegate(typeof (Action<SqlCommand, T>));
             }
