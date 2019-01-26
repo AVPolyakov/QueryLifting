@@ -28,14 +28,14 @@ namespace Foo.Tests
         }
 
         [Fact]
-        public async Task TestQueries()
+        public void TestQueries()
         {
-            await IterateQueries(delegate { });
+            IterateQueries(delegate { });
         }
 
-        private async Task IterateQueries(Action<QueryInfo> onQuery)
+        private void IterateQueries(Action<QueryInfo> onQuery)
         {
-            await UsingQueryChecker(new QueryChecker(onQuery), () => {
+            UsingQueryChecker(new QueryChecker(onQuery), () => {
                 foreach (var usage in new[] {typeof(Program)}.SelectMany(_ => _.Assembly.GetTypes()).ResolveUsages())
                 {
                     var methodInfo = usage.ResolvedMember as MethodInfo;
@@ -48,8 +48,8 @@ namespace Foo.Tests
                     {
                         var currentMethod = usage.CurrentMethod as MethodInfo;
                         if (currentMethod != null && currentMethod.IsGenericMethod && new[] {
-                                pagedQueriesMethod, pagedQueryMethod
-                            }.Contains(currentMethod.GetGenericMethodDefinition()))
+                            pagedQueriesMethod, pagedQueryMethod
+                        }.Contains(currentMethod.GetGenericMethodDefinition()))
                             continue;
                         var invocation = usage.CurrentMethod.GetStaticInvocation();
                         if (!invocation.HasValue) throw new ApplicationException("Method must be static");
@@ -174,12 +174,12 @@ namespace Foo.Tests
 
         private static readonly MethodInfo pagedQueryMethod = typeof(FooSqlHelper).GetMethod(nameof(PagedQuery));
 
-        private static async Task UsingQueryChecker(IQueryChecker queryChecker, Action action)
+        private static void UsingQueryChecker(IQueryChecker queryChecker, Action action)
         {
             SqlHelper.QueryChecker = queryChecker;
             try
             {
-	            await Task.Run(action);
+                action();
             }
             finally
             {
@@ -188,10 +188,11 @@ namespace Foo.Tests
         }
 
         [Fact]
-        public async Task FindUsagesTest()
+        public void FindUsagesTest()
         {
             var queries = new Dictionary<Tuple<string, int>, HashSet<Tuple<string, string>>>();
-            await IterateQueries(queryInfo => {
+            IterateQueries(queryInfo =>
+            {
                 if (queryInfo.Command.CommandType == CommandType.StoredProcedure) return;
                 {
                     {
