@@ -52,14 +52,14 @@ namespace Foo.Tests
                         }.Contains(currentMethod.GetGenericMethodDefinition()))
                             continue;
                         var invocation = usage.CurrentMethod.GetStaticInvocation();
-                        if (!invocation.HasValue) throw new ApplicationException("Method must be static");
+                        if (!invocation.HasValue) throw new QueryCheckException("Method must be static");
                         foreach (var combination in usage.CurrentMethod.GetParameters().GetAllCombinations(TestValues))
                             invocation.Value(combination.ToArray());
                     }
                 }
                 TestMethod(typeof(Program).GetMethod(nameof(ReadPosts)), parameterInfo => {
                     if (parameterInfo.Name == "date") return new object[] {new DateTime?(), new DateTime(2001, 1, 1),};
-                    throw new ApplicationException();
+                    throw new Exception();
                 });
             });
         }
@@ -136,7 +136,7 @@ namespace Foo.Tests
 	                    .Select(args => method.Invoke(null, args.ToArray()));
                 }
             }
-            throw new ApplicationException($"Test value not found for parameter type `{parameterInfo.ParameterType}`");
+            throw new QueryCheckException($"Test value not found for parameter type `{parameterInfo.ParameterType}`");
         }
 
         private static T? CreateNullable<T>(T arg) where T : struct => arg;
@@ -347,7 +347,7 @@ WHERE   referenced_entity_name = @referenced_entity_name");
                 case SqlDbType.Decimal:
                     return $"DECIMAL({parameter.Precision}, {parameter.Scale})";
                 default:
-                    throw new ApplicationException();
+                    throw new Exception();
             }
         }
 

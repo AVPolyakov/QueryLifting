@@ -4,21 +4,21 @@ The [test](Foo.Tests/QueryTests.cs#L33)
 the SQL queries in SchemaOnly mode. 
 The test checks the match of 
 the [names and types of query columns](Foo/Program.cs#L42)
-and the [calls of DataReader methods](Foo/Program.cs#L50-L53). 
+and the [calls of DataReader methods](Foo/Program.cs#L50). 
 If there is no match then the test 
-[writes to console](Foo.Tests/QueryChecker.cs#L119-L126)
+[writes to console](Foo.Tests/QueryChecker.cs#L116)
 the code for correct data retrieving.
 
 The [general test](Foo.Tests/QueryTests.cs#L33)
 [finds](QueryLifting/UsageResolver.cs#L14) and calls 
 all the methods where a method of
-[specified set](Foo.Tests/QueryTests.cs#L44-L45)
+[specified set](Foo.Tests/QueryTests.cs#L44)
 is invoked.
 You can explicitly specify
-the [test method](Foo.Tests/QueryTests.cs#L61).
+the [test method](Foo.Tests/QueryTests.cs#L60).
 
 Test values of parameters are specified in the method
-[TestValues](Foo.Tests/QueryTests.cs#L73-L140).
+[TestValues](Foo.Tests/QueryTests.cs#L73).
 The test iterates through
 [all combinations of test values](QueryLifting/EnumerableExtensions.cs#L10).
 All possible values are listed for the types 
@@ -34,7 +34,7 @@ If the building of the query depends on these types only then all versions of th
 You can explicitly specify 
 the [test values for the particular parameter](Foo.Tests/QueryTests.cs#L60).
 
-The [test method](Foo/Program.cs#L61-L70) 
+The [test method](Foo/Program.cs#L61) 
 may be [anonymous](QueryLifting/Func.cs#L7)
 (code coverage visualization by [dotCover](https://www.jetbrains.com/help/dotcover/10.0/Visualizing_Code_Coverage.html)):  
 ![Code coverage](Images/CodeCoverage.png?raw=true "Code coverage")  

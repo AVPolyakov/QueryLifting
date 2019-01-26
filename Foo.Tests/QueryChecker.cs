@@ -38,37 +38,40 @@ namespace Foo.Tests
             }
         }
 
-        private static ApplicationException GetException(Exception e, QueryInfo info)
+        private static QueryCheckException GetException(Exception e, QueryInfo info)
         {
-            return new ApplicationException($"{e.Message}{(e.Message.EndsWith(".") ? "" : ".") } Information about query File and line: {info.FilePath}:line {info.Line}, QueryText: {info.Command.CommandText}", e);
+            if (e is QueryCheckException checkException && checkException.QueryResultType.HasValue)
+                return new QueryCheckException($@"{e.Message}{(e.Message.EndsWith(".") ? "" : ".")} Information about query File and line: {info.FilePath}:line {info.Line}, Query text: {info.Command.CommandText},
+Query result type:
+{checkException.QueryResultType.Value}", e);
+            else
+                return new QueryCheckException($"{e.Message}{(e.Message.EndsWith(".") ? "" : ".")} Information about query File and line: {info.FilePath}:line {info.Line}, Query text: {info.Command.CommandText}", e);
         }
 
         public Task<List<T>> Read<T>(SqlDataReader reader, Func<T> materializer)
         {
             var ordinals = new HashSet<int>();
-            if (!ordinalDictionary.TryAdd(reader, ordinals)) throw new ApplicationException();
+            if (!ordinalDictionary.TryAdd(reader, ordinals)) throw new Exception();
             try
             {
                 materializer();
             }
             finally
             {
-	            if (!ordinalDictionary.TryRemove(reader, out _)) throw new ApplicationException();
+	            if (!ordinalDictionary.TryRemove(reader, out _)) throw new Exception();
             }
             if (ordinals.Count != reader.FieldCount)
-            {
-                WriteDataRetrievingCode(reader);
-                throw new ApplicationException("Field count mismatch");
-            }
+                throw new QueryCheckException("Field count mismatch", queryResultType: GetQueryResultType(reader));
             return Task.FromResult(new List<T>());
         }
 
         public T Check<T>(SqlDataReader reader, int ordinal)
         {
-	        if (!ordinalDictionary.TryGetValue(reader, out var ordinals)) throw new ApplicationException();
+	        if (!ordinalDictionary.TryGetValue(reader, out var ordinals)) throw new Exception();
             ordinals.Add(ordinal);
             var type = typeof (T);
-            ApplicationException GetInnerException() => new ApplicationException($"Type mismatch for field '{reader.GetName(ordinal)}', type in query {reader.GetFieldType(ordinal)}");
+            QueryCheckException GetInnerException() => new QueryCheckException($"Type mismatch for field '{reader.GetName(ordinal)}', type in query {reader.GetFieldType(ordinal)}, type in result {type}",
+                queryResultType: GetQueryResultType(reader));
             if (AllowDBNull(reader, ordinal))
             {
 	            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>) &&
@@ -77,22 +80,16 @@ namespace Foo.Tests
 		            //no-op
 	            }
 	            else if (type == typeof(string) && TypesAreCompatible(reader.GetFieldType(ordinal), type))
-	            {
-					//no-op
-	            }
-	            else
-	            {
-		            WriteDataRetrievingCode(reader);
-		            throw GetInnerException();
-	            }
+                {
+                    //no-op
+                }
+                else
+                    throw GetInnerException();
             }
             else
             {
                 if (!TypesAreCompatible(reader.GetFieldType(ordinal), type))
-                {
-                    WriteDataRetrievingCode(reader);
                     throw GetInnerException();
-                }
             }
             return default(T);
         }
@@ -105,8 +102,8 @@ namespace Foo.Tests
             }
             catch (IndexOutOfRangeException)
             {
-                WriteDataRetrievingCode(reader);
-                throw new ApplicationException($"Field '{name}' not found in query");
+                throw new QueryCheckException($"Field '{name}' not found in query",
+                    queryResultType: GetQueryResultType(reader));
             }
         }
 
@@ -116,13 +113,16 @@ namespace Foo.Tests
             return type == dbType;
         }
 
-        private static void WriteDataRetrievingCode(SqlDataReader reader)
+        private static string GetQueryResultType(SqlDataReader reader)
         {
-            Console.WriteLine(string.Join(Environment.NewLine,
+            return string.Join(Environment.NewLine,
                 Enumerable.Range(0, reader.FieldCount).Select(i => {
-                    var typeName = (AllowDBNull(reader, i) ? typeof (Option<>).MakeGenericType(reader.GetFieldType(i)) : reader.GetFieldType(i)).GetCSharpName();
+                    var type = AllowDBNull(reader, i) && reader.GetFieldType(i).IsValueType 
+                        ? typeof(Nullable<>).MakeGenericType(reader.GetFieldType(i)) 
+                        : reader.GetFieldType(i);
+                    var typeName = type.GetCSharpName();
                     return $"        public {typeName} {reader.GetName(i)} {{ get; set; }}";
-                })));
+                }));
         }
 
         private static bool AllowDBNull(SqlDataReader reader, int ordinal)
@@ -134,7 +134,7 @@ namespace Foo.Tests
 
         public void NonQuery(NonQuery query)
         {
-	        ApplicationException GetInnerException() => new ApplicationException("Parameter type mismatch");
+            QueryCheckException GetInnerException() => new QueryCheckException("Parameter type mismatch");
             var info = new QueryInfo(query.Command, query.ConnectionString, query.Line, query.FilePath);
             onQuery(info);
             try
@@ -206,6 +206,18 @@ namespace Foo.Tests
             ConnectionString = connectionString;
             Line = line;
             FilePath = filePath;
+        }
+    }
+
+    public class QueryCheckException : Exception
+    {
+        public Option<string> QueryResultType { get; }
+
+        public QueryCheckException(string message, Exception innerException = null,
+            Option<string> queryResultType = new Option<string>())
+            : base(message, innerException)
+        {
+            QueryResultType = queryResultType;
         }
     }
 }

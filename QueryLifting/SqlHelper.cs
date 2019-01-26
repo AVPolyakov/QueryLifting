@@ -40,7 +40,7 @@ namespace QueryLifting
             return list;
         }
 
-        public static Func<string> ConnectionStringFunc = () => { throw new ApplicationException("Set the connection string func at application start."); };
+        public static Func<string> ConnectionStringFunc = () => throw new ApplicationException("Set the connection string func at application start.");
 
         public static async Task<T> Single<T>(this Query<List<T>> query) => (await query.Read()).Single();
 

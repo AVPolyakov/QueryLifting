@@ -14,9 +14,9 @@ namespace QueryLifting
 
         public bool HasValue2 => Match(_ => false, _ => true);
 
-        public T1 Value1 => Match(_ => _, _ => { throw new InvalidOperationException(); });
+        public T1 Value1 => Match(_ => _, _ => throw new InvalidOperationException());
 
-        public T2 Value2 => Match(_ => { throw new InvalidOperationException(); }, _ => _);
+        public T2 Value2 => Match(_ => throw new InvalidOperationException(), _ => _);
 
         private Choice()
         {
