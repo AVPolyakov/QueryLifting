@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using DbUp;
 using QueryLifting;
 using Xunit;
 using static QueryLifting.SqlHelper;
@@ -14,9 +16,13 @@ namespace Foo
 {
     public class Program
     {
+        public static string ConnectionString => @"Data Source=(local)\SQL2014;Initial Catalog=QueryLifting;Integrated Security=True";
+
         static async Task Main()
         {
             Init();
+
+            if (DbUp() != 0) return;
 
             await DataReaderExample(new DateTime(2015, 1, 1));
             await PostExample(new DateTime(2015, 1, 1));
@@ -340,8 +346,47 @@ WHERE 1 = 1");
             ConnectionStringFunc = () => ConnectionString;
         }
 
-        //Scripts for database are located in folder DatabaseScripts in project root.
-        public static string ConnectionString => @"Data Source=(local)\SQL2014;Initial Catalog=QueryLifting;Integrated Security=True";
+        private static int DbUp()
+        {
+            SetAllowSnapshotIsolation();
+
+            var connectionString = ConnectionString;
+
+            var upgrader =
+                DeployChanges.To
+                    .SqlDatabase(connectionString)
+                    .WithScriptsEmbeddedInAssembly(Assembly.GetExecutingAssembly())
+                    .WithTransactionPerScript()
+                    .LogToConsole()
+                    .Build();
+
+            var result = upgrader.PerformUpgrade();
+
+            if (!result.Successful)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(result.Error);
+                Console.ResetColor();
+#if DEBUG
+                Console.ReadLine();
+#endif
+                return -1;
+            }
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Success!");
+            Console.ResetColor();
+            return 0;
+        }
+
+        private static void SetAllowSnapshotIsolation()
+        {
+            new SqlCommand(@"
+IF ((SELECT snapshot_isolation_state_desc FROM sys.databases WHERE name='QueryLifting') <> 'ON')
+BEGIN
+  ALTER DATABASE QueryLifting SET ALLOW_SNAPSHOT_ISOLATION ON
+END;").NonQuery().Execute().Wait();
+        }
     }
 
     public enum MyEnum

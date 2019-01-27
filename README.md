@@ -3,8 +3,8 @@ The [test](Foo.Tests/QueryTests.cs#L33)
 [executes](Foo.Tests/QueryChecker.cs#L31)
 the SQL queries in SchemaOnly mode. 
 The test checks the match of 
-the [names and types of query columns](Foo/Program.cs#L42)
-and the [calls of DataReader methods](Foo/Program.cs#L50). 
+the [names and types of query columns](Foo/Program.cs#L48)
+and the [calls of DataReader methods](Foo/Program.cs#L56). 
 If there is no match then the test 
 [writes to console](Foo.Tests/QueryChecker.cs#L116)
 the code for correct data retrieving.
@@ -34,7 +34,7 @@ If the building of the query depends on these types only then all versions of th
 You can explicitly specify 
 the [test values for the particular parameter](Foo.Tests/QueryTests.cs#L60).
 
-The [test method](Foo/Program.cs#L61) 
+The [test method](Foo/Program.cs#L67) 
 may be [anonymous](QueryLifting/Func.cs#L7)
 (code coverage visualization by [dotCover](https://www.jetbrains.com/help/dotcover/10.0/Visualizing_Code_Coverage.html)):  
 ![Code coverage](Images/CodeCoverage.png?raw=true "Code coverage")  
