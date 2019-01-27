@@ -40,7 +40,7 @@ namespace QueryLifting
             return list;
         }
 
-        public static Func<string> ConnectionStringFunc = () => throw new ApplicationException("Set the connection string func at application start.");
+        public static Func<string> ConnectionStringFunc = () => throw new Exception("Set the connection string func at application start.");
 
         public static async Task<T> Single<T>(this Query<List<T>> query) => (await query.Read()).Single();
 
@@ -68,10 +68,18 @@ namespace QueryLifting
         public static int Int32(this SqlDataReader reader, int ordinal)
             => QueryChecker != null ? QueryChecker.Check<int>(reader, ordinal) : reader.GetInt32(ordinal);
 
+        public static long Int64(this SqlDataReader reader, int ordinal)
+            => QueryChecker != null ? QueryChecker.Check<long>(reader, ordinal) : reader.GetInt64(ordinal);
+
         public static int? NullableInt32(this SqlDataReader reader, int ordinal)
             => QueryChecker != null
                 ? QueryChecker.Check<int?>(reader, ordinal)
                 : (reader.IsDBNull(ordinal) ? new int?() : reader.GetInt32(ordinal));
+
+        public static long? NullableInt64(this SqlDataReader reader, int ordinal)
+            => QueryChecker != null
+                ? QueryChecker.Check<long?>(reader, ordinal)
+                : (reader.IsDBNull(ordinal) ? new long?() : reader.GetInt64(ordinal));
 
         public static decimal Decimal(this SqlDataReader reader, int ordinal)
             => QueryChecker != null ? QueryChecker.Check<decimal>(reader, ordinal) : reader.GetDecimal(ordinal);
@@ -120,6 +128,8 @@ namespace QueryLifting
         public static readonly Dictionary<Type, MethodInfo> MethodInfos = new[] {
             GetMethodInfo<Func<SqlDataReader, int, int>>((reader, i) => reader.Int32(i)),
             GetMethodInfo<Func<SqlDataReader, int, int?>>((reader, i) => reader.NullableInt32(i)),
+            GetMethodInfo<Func<SqlDataReader, int, long>>((reader, i) => reader.Int64(i)),
+            GetMethodInfo<Func<SqlDataReader, int, long?>>((reader, i) => reader.NullableInt64(i)),
             GetMethodInfo<Func<SqlDataReader, int, decimal>>((reader, i) => reader.Decimal(i)),
             GetMethodInfo<Func<SqlDataReader, int, decimal?>>((reader, i) => reader.NullableDecimal(i)),
             GetMethodInfo<Func<SqlDataReader, int, Guid>>((reader, i) => reader.Guid(i)),
@@ -138,15 +148,15 @@ namespace QueryLifting
             static Cache()
             {
                 Func<SqlDataReader, Func<T>> func;
-                MethodInfo methodInfo;
-                if (MethodInfos.TryGetValue(typeof (T), out methodInfo))
+                var readMethod = GetReadMethod(typeof(T));
+                if (readMethod.HasValue)
                 {
                     var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), typeof (T),
                         new[] {typeof (SqlDataReader)}, true);
                     var ilGenerator = dynamicMethod.GetILGenerator();
                     ilGenerator.Emit(OpCodes.Ldarg_0);
                     ilGenerator.Emit(OpCodes.Ldc_I4_0);
-                    ilGenerator.EmitCall(methodInfo.IsVirtual ? OpCodes.Callvirt : OpCodes.Call, methodInfo, null);
+                    ilGenerator.EmitCall(readMethod.Value.IsVirtual ? OpCodes.Callvirt : OpCodes.Call, readMethod.Value, null);
                     ilGenerator.Emit(OpCodes.Ret);
                     var @delegate = (Func<SqlDataReader, T>) dynamicMethod.CreateDelegate(typeof (Func<SqlDataReader, T>));
                     func = reader => () => @delegate(reader);
@@ -170,8 +180,10 @@ namespace QueryLifting
                         generator.Emit(OpCodes.Ldarg_1);
                         generator.Emit(OpCodes.Ldarg_0);
                         generator.Emit(OpCodes.Ldfld, item.Item2);
-                        var info = MethodInfos[item.Item1.PropertyType];
-                        generator.EmitCall(info.IsVirtual ? OpCodes.Callvirt : OpCodes.Call, info, null);
+                        var method = GetReadMethod(item.Item1.PropertyType);
+                        if (!method.HasValue)
+                            throw new Exception($"Read method not fount for type '{item.Item1.PropertyType.FullName}'");
+                        generator.EmitCall(method.Value.IsVirtual ? OpCodes.Callvirt : OpCodes.Call, method.Value, null);
                         generator.EmitCall(OpCodes.Callvirt, item.Item1.GetSetMethod(), null);
                     }
                     generator.Emit(OpCodes.Ldloc_0);
@@ -228,6 +240,14 @@ namespace QueryLifting
                 : command.Parameters.Add(new SqlParameter(parameterName, SqlDbType.Int) {Value = DBNull.Value});
 
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, int value)
+            => command.Parameters.AddWithValue(parameterName, value);
+
+        public static SqlParameter AddParam(this SqlCommand command, string parameterName, long? value)
+            => value.HasValue
+                ? command.AddParam(parameterName, value.Value)
+                : command.Parameters.Add(new SqlParameter(parameterName, SqlDbType.BigInt) {Value = DBNull.Value});
+
+        public static SqlParameter AddParam(this SqlCommand command, string parameterName, long value)
             => command.Parameters.AddWithValue(parameterName, value);
 
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, decimal? value)
@@ -313,6 +333,8 @@ namespace QueryLifting
         public static readonly Dictionary<Type, MethodInfo> AddParamsMethods = new[] {
             GetMethodInfo<Func<SqlCommand, string, int, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, int?, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
+            GetMethodInfo<Func<SqlCommand, string, long, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
+            GetMethodInfo<Func<SqlCommand, string, long?, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, decimal, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, decimal?, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, Guid, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
@@ -348,14 +370,202 @@ namespace QueryLifting
             }
         }
 
+        private static Option<MethodInfo> GetReadMethod(Type type)
+        {
+            if (MethodInfos.TryGetValue(type, out var methodInfo))
+                return methodInfo;
+            if (type.IsEnum)
+            {
+                var underlyingType = Enum.GetUnderlyingType(type);
+                if (underlyingType == typeof(int))
+                    return intEnum.MakeGenericMethod(type);
+                if (underlyingType == typeof(int))
+                    return longEnum.MakeGenericMethod(type);
+            }
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                var argType = type.GetGenericArguments().Single();
+                if (argType.IsEnum)
+                {
+                    var underlyingType = Enum.GetUnderlyingType(argType);
+                    if (underlyingType == typeof(int))
+                        return nullableIntEnum.MakeGenericMethod(argType);
+                    if (underlyingType == typeof(long))
+                        return nullableLongEnum.MakeGenericMethod(argType);
+                }
+            }
+            return new Option<MethodInfo>();
+        }
+
+        private static readonly MethodInfo nullableIntEnum = GetMethodInfo<Func<SqlDataReader, int, BindingFlags?>>(
+            (reader, ordinal) => reader.NullableIntEnum<BindingFlags>(ordinal)).GetGenericMethodDefinition();
+
+        private static readonly MethodInfo nullableLongEnum = GetMethodInfo<Func<SqlDataReader, int, BindingFlags?>>(
+            (reader, ordinal) => reader.NullableLongEnum<BindingFlags>(ordinal)).GetGenericMethodDefinition();
+
+        public static T? NullableIntEnum<T>(this SqlDataReader reader, int ordinal)
+            where T : struct, Enum
+            => QueryChecker != null
+                ? QueryChecker.Check<T?>(reader, ordinal)
+                : reader.IsDBNull(ordinal) ? new T?() : IntToEnumCache<T>.Func(reader.GetInt32(ordinal));
+
+        public static T? NullableLongEnum<T>(this SqlDataReader reader, int ordinal)
+            where T : struct, Enum
+            => QueryChecker != null
+                ? QueryChecker.Check<T?>(reader, ordinal)
+                : reader.IsDBNull(ordinal) ? new T?() : LongToEnumCache<T>.Func(reader.GetInt64(ordinal));
+
+        private static readonly MethodInfo intEnum = GetMethodInfo<Func<SqlDataReader, int, BindingFlags>>(
+            (reader, ordinal) => reader.IntEnum<BindingFlags>(ordinal)).GetGenericMethodDefinition();
+
+        private static readonly MethodInfo longEnum = GetMethodInfo<Func<SqlDataReader, int, BindingFlags>>(
+            (reader, ordinal) => reader.LongEnum<BindingFlags>(ordinal)).GetGenericMethodDefinition();
+
+        public static T IntEnum<T>(this SqlDataReader reader, int ordinal)
+            where T : Enum
+            => QueryChecker != null
+                ? QueryChecker.Check<T>(reader, ordinal)
+                : IntToEnumCache<T>.Func(reader.GetInt32(ordinal));
+
+        public static T LongEnum<T>(this SqlDataReader reader, int ordinal)
+            where T : Enum
+            => QueryChecker != null
+                ? QueryChecker.Check<T>(reader, ordinal)
+                : LongToEnumCache<T>.Func(reader.GetInt64(ordinal));
+
         private static MethodInfo GetAddParamMethod(Type type)
         {
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Param<>))
                 return paramMethod.MakeGenericMethod(type.GetGenericArguments());
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Cluster<>))
                 return clusterParamMethod.MakeGenericMethod(type.GetGenericArguments());
-            return AddParamsMethods[type];
+            if (AddParamsMethods.TryGetValue(type, out var methodInfo))
+                return methodInfo;
+            if (type.IsEnum)
+            {
+                //TODO: add code generation for byte, sbyte, short, ushort, int, uint, long, ulong
+                var underlyingType = Enum.GetUnderlyingType(type);
+                if (underlyingType == typeof(int))
+                    return intEnumParam.MakeGenericMethod(type);
+                if (underlyingType == typeof(long))
+                    return longEnumParam.MakeGenericMethod(type);
+            }
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                var argType = type.GetGenericArguments().Single();
+                if (argType.IsEnum)
+                {
+                    var underlyingType = Enum.GetUnderlyingType(argType);
+                    if (underlyingType == typeof(int))
+                        return nullableIntEnumParam.MakeGenericMethod(argType);
+                    if (underlyingType == typeof(long))
+                        return nullableLongEnumParam.MakeGenericMethod(argType);
+                }
+            }
+            throw new Exception($"Method of parameter adding not found for type '{type.FullName}'");
         }
+
+        public static SqlParameter AddIntEnumParam<T>(this SqlCommand command, string parameterName, T value)
+            where T : Enum
+            => command.AddParam(parameterName, ToIntCache<T>.Func(value));
+
+        public static SqlParameter AddLongEnumParam<T>(this SqlCommand command, string parameterName, T value)
+            where T : Enum
+            => command.AddParam(parameterName, ToLongCache<T>.Func(value));
+
+        public static SqlParameter AddIntEnumParam<T>(this SqlCommand command, string parameterName, T? value)
+            where T : struct, Enum
+        {
+            int? intValue;
+            if (value.HasValue)
+                intValue = ToIntCache<T>.Func(value.Value);
+            else
+                intValue = null;
+            return command.AddParam(parameterName, intValue);
+        }
+
+        public static SqlParameter AddLongEnumParam<T>(this SqlCommand command, string parameterName, T? value)
+            where T : struct, Enum
+        {
+            long? intValue;
+            if (value.HasValue)
+                intValue = ToLongCache<T>.Func(value.Value);
+            else
+                intValue = null;
+            return command.AddParam(parameterName, intValue);
+        }
+
+        private static class ToIntCache<T>
+        {
+            public static readonly Func<T, int> Func;
+
+            static ToIntCache()
+            {
+                var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), typeof(int),
+                    new[] {typeof(T)}, true);
+                var ilGenerator = dynamicMethod.GetILGenerator();
+                ilGenerator.Emit(OpCodes.Ldarg_0);
+                ilGenerator.Emit(OpCodes.Ret);
+                Func = (Func<T, int>) dynamicMethod.CreateDelegate(typeof(Func<T, int>));
+            }
+        }
+
+        private static class ToLongCache<T>
+        {
+            public static readonly Func<T, long> Func;
+
+            static ToLongCache()
+            {
+                var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), typeof(long),
+                    new[] {typeof(T)}, true);
+                var ilGenerator = dynamicMethod.GetILGenerator();
+                ilGenerator.Emit(OpCodes.Ldarg_0);
+                ilGenerator.Emit(OpCodes.Ret);
+                Func = (Func<T, long>) dynamicMethod.CreateDelegate(typeof(Func<T, long>));
+            }
+        }
+
+        private static class IntToEnumCache<T>
+        {
+            public static readonly Func<int, T> Func;
+
+            static IntToEnumCache()
+            {
+                var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), typeof(T),
+                    new[] {typeof(int)}, true);
+                var ilGenerator = dynamicMethod.GetILGenerator();
+                ilGenerator.Emit(OpCodes.Ldarg_0);
+                ilGenerator.Emit(OpCodes.Ret);
+                Func = (Func<int, T>) dynamicMethod.CreateDelegate(typeof(Func<int, T>));
+            }
+        }
+
+        private static class LongToEnumCache<T>
+        {
+            public static readonly Func<long, T> Func;
+
+            static LongToEnumCache()
+            {
+                var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), typeof(T),
+                    new[] {typeof(long)}, true);
+                var ilGenerator = dynamicMethod.GetILGenerator();
+                ilGenerator.Emit(OpCodes.Ldarg_0);
+                ilGenerator.Emit(OpCodes.Ret);
+                Func = (Func<long, T>) dynamicMethod.CreateDelegate(typeof(Func<long, T>));
+            }
+        }
+
+        private static readonly MethodInfo intEnumParam = GetMethodInfo<Func<SqlCommand, string, BindingFlags, SqlParameter>>(
+            (command, name, value) => command.AddIntEnumParam(name, value)).GetGenericMethodDefinition();
+
+        private static readonly MethodInfo longEnumParam = GetMethodInfo<Func<SqlCommand, string, BindingFlags, SqlParameter>>(
+            (command, name, value) => command.AddLongEnumParam(name, value)).GetGenericMethodDefinition();
+
+        private static readonly MethodInfo nullableIntEnumParam = GetMethodInfo<Func<SqlCommand, string, BindingFlags?, SqlParameter>>(
+            (command, name, value) => command.AddIntEnumParam(name, value)).GetGenericMethodDefinition();
+
+        private static readonly MethodInfo nullableLongEnumParam = GetMethodInfo<Func<SqlCommand, string, BindingFlags?, SqlParameter>>(
+            (command, name, value) => command.AddLongEnumParam(name, value)).GetGenericMethodDefinition();
 
         private static readonly MethodInfo paramMethod = GetMethodInfo<Func<SqlCommand, string, Param<object>, SqlParameter>>(
                 (command, name, value) => command.AddParam(name, value)).GetGenericMethodDefinition();
@@ -383,7 +593,7 @@ namespace QueryLifting
                 case 1:
                     return type.Name.Contains("AnonymousType");
                 default:
-                    throw new ApplicationException();
+                    throw new Exception();
             }
         }
 

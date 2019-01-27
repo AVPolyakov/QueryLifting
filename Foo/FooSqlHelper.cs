@@ -13,14 +13,6 @@ namespace Foo
 {
     public static class FooSqlHelper
     {
-        public static SqlParameter AddParam(this SqlCommand command, string parameterName, MyEnum value) 
-            => command.AddParam(parameterName, (int) value);
-
-        public static MyEnum? NullableMyEnum(this SqlDataReader reader, int ordinal)
-            => QueryChecker != null
-                ? QueryChecker.Check<MyEnum?>(reader, ordinal)
-                : (reader.IsDBNull(ordinal) ? new MyEnum?() : (MyEnum) reader.GetInt32(ordinal));
-
         public static PaggingInfo<Query<List<TData>>, Query<int>> PagedQueries<TData>(
             Action<StringBuilder, SqlCommand> query, Action<StringBuilder, SqlCommand> orderBy, int offset, int pageSize,
             [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")

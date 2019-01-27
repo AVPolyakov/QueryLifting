@@ -338,10 +338,6 @@ WHERE 1 = 1");
         public static void Init()
         {
             ConnectionStringFunc = () => ConnectionString;
-            AddParamsMethods.Add(typeof(MyEnum), GetMethodInfo<Func<SqlCommand, string, MyEnum, SqlParameter>>(
-                (command, name, value) => command.AddParam(name, value)));
-            MethodInfos.Add(typeof(MyEnum?), GetMethodInfo<Func<SqlDataReader, int, MyEnum?>>(
-                (reader, i) => reader.NullableMyEnum(i)));
         }
 
         //Scripts for database are located in folder DatabaseScripts in project root.

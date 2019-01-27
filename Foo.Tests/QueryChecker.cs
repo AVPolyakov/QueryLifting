@@ -109,7 +109,7 @@ Query result type:
 
         private static bool TypesAreCompatible(Type dbType, Type type)
         {
-            if (dbType == typeof (int) && type == typeof (MyEnum)) return true;
+            if (type.IsEnum && dbType == Enum.GetUnderlyingType(type)) return true;
             return type == dbType;
         }
 

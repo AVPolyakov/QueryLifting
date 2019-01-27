@@ -119,7 +119,7 @@ namespace QueryLifting
                     {
                         if ((value & 0xff00) != 0xfe00)
                         {
-                            throw new ApplicationException("Invalid OpCode.");
+                            throw new Exception("Invalid OpCode.");
                         }
                         multiByteOpCodes[value & 0xff] = opCode;
                     }
