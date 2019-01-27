@@ -3,8 +3,8 @@ The [test](Foo.Tests/QueryTests.cs#L33)
 [executes](Foo.Tests/QueryChecker.cs#L31)
 the SQL queries in SchemaOnly mode. 
 The test checks the match of 
-the [names and types of query columns](Foo/Program.cs#L48)
-and the [calls of DataReader methods](Foo/Program.cs#L56). 
+the [names and types of query columns](Foo/Program.cs#L44)
+and the [calls of DataReader methods](Foo/Program.cs#L51). 
 If there is no match then the test 
 [writes to console](Foo.Tests/QueryChecker.cs#L116)
 the code for correct data retrieving.
@@ -34,7 +34,7 @@ If the building of the query depends on these types only then all versions of th
 You can explicitly specify 
 the [test values for the particular parameter](Foo.Tests/QueryTests.cs#L60).
 
-The [test method](Foo/Program.cs#L67) 
+The [test method](Foo/Program.cs#L63) 
 may be [anonymous](QueryLifting/Func.cs#L7)
 (code coverage visualization by [dotCover](https://www.jetbrains.com/help/dotcover/10.0/Visualizing_Code_Coverage.html)):  
 ![Code coverage](Images/CodeCoverage.png?raw=true "Code coverage")  
@@ -43,7 +43,7 @@ may be [anonymous](QueryLifting/Func.cs#L7)
 
 In addition to the validation of queries the tests can be used to find 
 all references to database entities: tables, columns, etc. 
-The [method](Foo.Tests/QueryTests.cs#L191) 
+The [method](Foo.Tests/QueryTests.cs#L189) 
 writes to the console the locations of the queries that use 
 the specified database entity `tableName: "Post", columnName: "CreationDate"`.
 ```

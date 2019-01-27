@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Reflection;
@@ -29,14 +28,11 @@ namespace Foo
             await InsertUpdateDelete();
             await NamedMethod(new DateTime(2015, 1, 1));
             ParamExample();
-            await PaggingByTwoQueries(new DateTime(2015, 1, 1), 1, 1);
-            await PaggingByOneQuery(new DateTime(2015, 1, 1), 1, 1);
-            await OptionExample(new DateTime(2015, 1, 1));
-            await FuncExample();
-            await MyEnumExample();
-            await ChoiceExample("test");
+            await Pagging(new DateTime(2015, 1, 1), 1, 1);
             await ParentChildExample();
-            await ParentChildExample2();
+            await MyEnumExample();
+            await FuncExample();
+            await ChoiceExample("test");
             await ClusterExample(new DateTime(2015, 1, 1), new DateTime(2018, 1, 1));
         }
 
@@ -80,30 +76,6 @@ WHERE 1 = 1");
             }
         }
 
-        private class PostData
-        {
-            public string Text { get; set; }
-            public DateTime CreationDate { get; set; }
-        }
-
-        private static async Task<int> InsertOrUpdate(int? id, PostData data)
-        {
-            var param = new {
-                data.Text,
-                data.CreationDate
-            };
-            const string table = "Post";
-            if (!id.HasValue)
-                return await param.Apply(p =>
-                    InsertQuery(table, default(int), p)).Single();
-            else
-            {
-                await new {PostId = id.Value, param}.Apply(p =>
-                    UpdateQuery(table, new {p.PostId}, p.param)).Execute();
-                return id.Value;
-            }
-        }
-
         private static async Task InsertUpdateDelete()
         {
             int id;
@@ -128,6 +100,24 @@ WHERE 1 = 1");
                 Assert.Empty(
                     await new {id}.Apply(p => new SqlCommand("SELECT Text FROM Post WHERE PostId = @Id").AddParams(p)
                         .Query<string>()).Read());
+            }
+        }
+
+        private static async Task<int> InsertOrUpdate(int? id, PostData data)
+        {
+            var param = new {
+                data.Text,
+                data.CreationDate
+            };
+            const string table = "Post";
+            if (!id.HasValue)
+                return await param.Apply(p =>
+                    InsertQuery(table, default(int), p)).Single();
+            else
+            {
+                await new {PostId = id.Value, param}.Apply(p =>
+                    UpdateQuery(table, new {p.PostId}, p.param)).Execute();
+                return id.Value;
             }
         }
 
@@ -157,7 +147,7 @@ WHERE 1 = 1");
                 new SqlCommand("INSERT T001 (C1) VALUES (@C1)").AddParams(p).NonQuery());
         }
 
-        private static async Task PaggingByTwoQueries(DateTime? date, int offset, int pageSize)
+        private static async Task Pagging(DateTime? date, int offset, int pageSize)
         {
             var paggingInfo = new {date, offset, pageSize}.Apply(p => PagedQueries<PostInfo>(
                 (builder, command) => {
@@ -175,38 +165,43 @@ WHERE 1 = 1");
             Console.WriteLine($"{paggingInfo.Count.Read()}");
         }
 
-        private static async Task PaggingByOneQuery(DateTime? date, int offset, int pageSize)
+        private static async Task ParentChildExample(int maxChildId = 10)
         {
-            var paggingInfo = await new {date, offset, pageSize}.Apply(p => PagedQuery<PostInfo>(
-                (builder, command) => {
-                    builder.Append(@"
-SELECT PostId, Text,  CreationDate
-FROM Post
-WHERE 1 = 1");
-                    if (p.date.HasValue)
-                        builder.Append(command, @"
-    AND CreationDate > @date", new {p.date});
-                },
-                (builder, command) => builder.Append("CreationDate DESC, PostId"), p.offset, p.pageSize)).Read();
-            foreach (var record in paggingInfo.Data)
-                Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
-            Console.WriteLine($"{paggingInfo.Count}");
+            var queries = new {maxChildId}.Apply(p => {
+                var child = QueryAction((builder, command) => builder.Append(command, @"
+SELECT *
+FROM Child
+WHERE ChildId <= @maxChildId", new {p.maxChildId}));
+                return new {
+                    child = GetCommand(child).Query<Child>(),
+                    parent = GetCommand((builder, command) => builder.Append($@"
+SELECT *
+FROM Parent
+WHERE ParentId IN (SELECT ParentId FROM ({Text(child, command)}) T)")).Query<Parent>()
+                };
+            });
+            var parentChild = (await queries.child.Read()).ToLookup(_ => _.ParentId);
+            foreach (var parent in await queries.parent.Read())
+            {
+                Console.WriteLine(parent.ParentId);
+                foreach (var child in parentChild[parent.ParentId])
+                    Console.WriteLine($"  {child.ChildId}");
+            }
         }
 
-        private static async Task OptionExample(Option<DateTime> date)
+        private static async Task MyEnumExample()
         {
-            foreach (var record in await new {date}.Apply(p => {
-                var command = new SqlCommand();
-                var builder = new StringBuilder(@"
+            var single = await new {a = MyEnum.A}
+                .Apply(p => new SqlCommand(@"SELECT @a AS a").AddParams(p).Query<MyEnum?>()).Single();
+            Assert.Equal(MyEnum.A, single);
+        }
+
+        private static async Task FuncExample()
+        {
+            foreach (var record in await new {date = Func.New(() => DateTime.Now)}.Apply(p => new SqlCommand(@"
 SELECT PostId, Text,  CreationDate
 FROM Post
-WHERE 1 = 1");
-                if (p.date.HasValue)
-                    builder.Append(command, @"
-    AND CreationDate > @date", new {date = p.date.Value});
-                command.CommandText = builder.ToString();
-                return command.Query<PostInfo>();
-            }).Read())
+WHERE CreationDate > @date").AddParams(new {date = p.date()}).Query<PostInfo>()).Read())
             {
                 Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
             }
@@ -230,90 +225,6 @@ WHERE 1 = 1");
             {
                 Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
             }
-        }
-
-        private static async Task FuncExample()
-        {
-            foreach (var record in await new {date = Func.New(() => DateTime.Now)}.Apply(p => new SqlCommand(@"
-SELECT PostId, Text,  CreationDate
-FROM Post
-WHERE CreationDate > @date").AddParams(new {date = p.date()}).Query<PostInfo>()).Read())
-            {
-                Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
-            }
-        }
-
-        private static async Task MyEnumExample()
-        {
-            var single = await new {a = MyEnum.A}
-                .Apply(p => new SqlCommand(@"SELECT @a AS a").AddParams(p).Query<MyEnum?>()).Single();
-            Assert.Equal(MyEnum.A, single);
-        }
-
-        private static async Task ParentChildExample(int maxParentId = 10)
-        {
-            var result = await new {maxParentId}.Apply(p => {
-                var command = new SqlCommand();
-                var parent = @"
-SELECT *
-FROM Parent
-WHERE ParentId <= @maxParentId";
-                command.AddParams(new {p.maxParentId});
-                command.CommandText = $@"
-{parent};
-SELECT *
-FROM Child
-WHERE ParentId IN (SELECT ParentId FROM ({parent}) T);";
-                return command.Query(async reader => {
-                    var parents = await reader.Read<Parent>();
-                    await reader.NextResultAsync();
-                    return new {
-                        parents,
-                        children = await reader.Read<Child>()
-                    };
-                });
-            }).Read();
-            var parentChild = result.children.ToLookup(_ => _.ParentId);
-            foreach (var parent in result.parents)
-            {
-                Console.WriteLine(parent.ParentId);
-                foreach (var child in parentChild[parent.ParentId])
-                    Console.WriteLine($"  {child.ChildId}");
-            }
-            var childParent = result.parents.ToDictionary(_ => _.ParentId);
-            foreach (var child in result.children)
-                Console.WriteLine($"{child.ChildId} {childParent[child.ParentId].ParentId}");
-        }
-
-        private static async Task ParentChildExample2(int maxChildId = 10)
-        {
-            var queries = new {maxChildId}.Apply(p => {
-                var child = QueryAction((builder, command) => builder.Append(command, @"
-SELECT *
-FROM Child
-WHERE ChildId <= @maxChildId", new {p.maxChildId}));
-                return new {
-                    child = GetCommand(child).Query<Child>(),
-                    parent = GetCommand((builder, command) => builder.Append($@"
-SELECT *
-FROM Parent
-WHERE ParentId IN (SELECT ParentId FROM ({Text(child, command)}) T)")).Query<Parent>()
-                };
-            });
-            var result = await Transaction(IsolationLevel.Snapshot, async transaction => new {
-                children = await queries.child.Read(transaction),
-                parents = await queries.parent.Read(transaction)
-            });
-            var parentChild = result.children.ToLookup(_ => _.ParentId);
-            foreach (var parent in result.parents)
-            {
-                Console.WriteLine(parent.ParentId);
-                foreach (var child in parentChild[parent.ParentId])
-                    Console.WriteLine($"  {child.ChildId}");
-            }
-            var childParent = result.parents.ToDictionary(_ => _.ParentId);
-            foreach (var child in result.children)
-                Console.WriteLine($"{child.ChildId} {childParent[child.ParentId].ParentId}");
         }
 
         private static async Task ClusterExample(DateTime? startDate, DateTime? endDate)
@@ -393,5 +304,11 @@ END;").NonQuery().Execute().Wait();
     {
         A,
         B
+    }
+
+    public class PostData
+    {
+        public string Text { get; set; }
+        public DateTime CreationDate { get; set; }
     }
 }

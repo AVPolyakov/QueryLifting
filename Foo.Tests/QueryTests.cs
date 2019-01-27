@@ -42,13 +42,13 @@ namespace Foo.Tests
                     if (methodInfo != null &&
                         (methodInfo.IsGenericMethod && new[] {
                              queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod,
-                             deleteQueryMethod, pagedQueriesMethod, pagedQueryMethod
+                             deleteQueryMethod, pagedQueriesMethod,
                          }.Contains(methodInfo.GetGenericMethodDefinition()) ||
                          methodInfo == nonQueryMethod))
                     {
                         var currentMethod = usage.CurrentMethod as MethodInfo;
                         if (currentMethod != null && currentMethod.IsGenericMethod && new[] {
-                            pagedQueriesMethod, pagedQueryMethod
+                            pagedQueriesMethod
                         }.Contains(currentMethod.GetGenericMethodDefinition()))
                             continue;
                         var invocation = usage.CurrentMethod.GetStaticInvocation();
@@ -171,8 +171,6 @@ namespace Foo.Tests
             (command, connectionString, line, filePath) => command.NonQuery(connectionString, line, filePath));
 
         private static readonly MethodInfo pagedQueriesMethod = typeof(FooSqlHelper).GetMethod(nameof(PagedQueries));
-
-        private static readonly MethodInfo pagedQueryMethod = typeof(FooSqlHelper).GetMethod(nameof(PagedQuery));
 
         private static void UsingQueryChecker(IQueryChecker queryChecker, Action action)
         {
