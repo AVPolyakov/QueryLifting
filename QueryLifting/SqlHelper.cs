@@ -443,7 +443,7 @@ namespace QueryLifting
                 return methodInfo;
             if (type.IsEnum)
             {
-                //TODO: add code generation for byte, sbyte, short, ushort, int, uint, long, ulong
+                //TODO: add code generation for byte, short
                 var underlyingType = Enum.GetUnderlyingType(type);
                 if (underlyingType == typeof(int))
                     return intEnumParam.MakeGenericMethod(type);
