@@ -392,5 +392,19 @@ IF EXISTS ( SELECT  *
 		        Assert.Equal(10, parameterInfos.GetAllCombinations(TestValues).Count());
 	        }
         }
+
+        [Fact]
+        public void FirstOnly_TestQueries()
+        {
+            EnumerableExtensions.FirstOnly = true;
+            try
+            {
+                IterateQueries(delegate { });
+            }
+            finally
+            {
+                EnumerableExtensions.FirstOnly = false;
+            }
+        }
     }
 }
