@@ -1,5 +1,5 @@
 # QueryLifting
-The [test](Foo.Tests/QueryTests.cs#L33) 
+The [test](Foo.Tests/QueryTests.cs#L26) 
 [executes](Foo.Tests/QueryChecker.cs#L31)
 the SQL queries in SchemaOnly mode. 
 The test checks the match of 
@@ -9,16 +9,16 @@ If there is no match then the test
 [writes to console](Foo.Tests/QueryChecker.cs#L116)
 the code for correct data retrieving.
 
-The [general test](Foo.Tests/QueryTests.cs#L33)
+The [general test](Foo.Tests/QueryTests.cs#L26)
 [finds](QueryLifting/UsageResolver.cs#L14) and calls 
 all the methods where a method of
-[specified set](Foo.Tests/QueryTests.cs#L44)
+[specified set](Foo.Tests/QueryTests.cs#L39)
 is invoked.
 You can explicitly specify
-the [test method](Foo.Tests/QueryTests.cs#L60).
+the [test method](Foo.Tests/QueryTests.cs#L55).
 
 Test values of parameters are specified in the method
-[TestValues](Foo.Tests/QueryTests.cs#L73).
+[TestValues](Foo.Tests/QueryTests.cs#L68).
 The test iterates through
 [all combinations of test values](QueryLifting/EnumerableExtensions.cs#L10).
 All possible values are listed for the types 
@@ -32,7 +32,7 @@ etc.
 If the building of the query depends on these types only then all versions of the query will be tested.
 
 You can explicitly specify 
-the [test values for the particular parameter](Foo.Tests/QueryTests.cs#L60).
+the [test values for the particular parameter](Foo.Tests/QueryTests.cs#L56).
 
 The [test method](Foo/Program.cs#L63) 
 may be [anonymous](QueryLifting/Func.cs#L7)
@@ -43,7 +43,7 @@ may be [anonymous](QueryLifting/Func.cs#L7)
 
 In addition to the validation of queries the tests can be used to find 
 all references to database entities: tables, columns, etc. 
-The [method](Foo.Tests/QueryTests.cs#L189) 
+The [method](Foo.Tests/QueryTests.cs#L184) 
 writes to the console the locations of the queries that use 
 the specified database entity `tableName: "Post", columnName: "CreationDate"`.
 ```

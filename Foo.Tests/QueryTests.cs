@@ -2,15 +2,10 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using PdfSharp.Drawing;
-using PdfSharp.Pdf;
 using QueryLifting;
 using Xunit;
 // ReSharper disable once RedundantUsingDirective
@@ -189,8 +184,7 @@ namespace Foo.Tests
         public void FindUsagesTest()
         {
             var queries = new Dictionary<Tuple<string, int>, HashSet<Tuple<string, string>>>();
-            IterateQueries(queryInfo =>
-            {
+            IterateQueries(queryInfo => {
                 if (queryInfo.Command.CommandType == CommandType.StoredProcedure) return;
                 {
                     {
@@ -214,61 +208,21 @@ AS
                     }
                 }
             });
-            SharpLayout.Document.CollectCallerInfo = true;
-            var document = new SharpLayout.Document();
-            var settings = new SharpLayout.PageSettings();
-            settings.LeftMargin = settings.TopMargin = settings.RightMargin = settings.BottomMargin = SharpLayout.Util.Cm(0.5);
-            var section = document.Add(new SharpLayout.Section(settings));
-            foreach (var usage in FindUsages(queries, tableName: "Post", columnName: "CreationDate"))
-            {
-                var file = Path.GetFileName(usage.Item1);
-                section.Add(new SharpLayout.Paragraph()
-                    .Add($"{file}, Ln {usage.Item2}", new SharpLayout.Font("Consolas", 9.5, XFontStyle.Regular, PdfOptions),
-                        line: usage.Item2, filePath: usage.Item1));
-                Console.WriteLine($"{file}, Ln {usage.Item2}");
-            }
-            StartLiveViewer(document.SavePng(0, "Temp.png", 120), true);
+
+            var entityName = "Post";
+            var columnName = "CreationDate";
+            var list = string.Join(Environment.NewLine,
+                FindUsages(queries, entityName: entityName, columnName: columnName)
+                    .Select(_ => $"{_.Item1}:line {_.Item2}"));
+            var result = $@"Search result for EntityName: {entityName}, ColumnName: {columnName}
+{list}
+---end search result---";
+            throw new Exception(result);
         }
-
-        private static void StartLiveViewer(string fileName, bool alwaysShowWindow, bool findId = true)
-        {
-            var processes = Process.GetProcessesByName("LiveViewer");
-            if (processes.Length <= 0)
-            {
-                string arguments;
-                if (findId && Ide == vs)
-                {
-                    const string solutionName = "QueryLifting";
-                    var firstOrDefault = Process.GetProcesses().FirstOrDefault(p => p.ProcessName == "devenv" &&
-                        p.MainWindowTitle.Contains(solutionName));
-                    if (firstOrDefault != null)
-                        arguments = $" {firstOrDefault.Id}";
-                    else
-                        arguments = "";
-                }
-                else
-                    arguments = "";
-                Process.Start("LiveViewer", fileName + " " + Ide + arguments);
-            }
-            else
-            {
-                if (alwaysShowWindow)
-                    SetForegroundWindow(processes[0].MainWindowHandle);
-            }
-        }
-
-        private static XPdfFontOptions PdfOptions => new XPdfFontOptions(PdfFontEncoding.Unicode);
-
-        private static string Ide => vs;
-
-        private const string vs = "vs";
-
-        [DllImport("user32.dll")]
-        private static extern bool SetForegroundWindow(IntPtr hWnd);
 
         private static IEnumerable<Tuple<string, int>> FindUsages(
             Dictionary<Tuple<string, int>, HashSet<Tuple<string, string>>> queries,
-            string tableName, Option<string> columnName = new Option<string>())
+            string entityName, Option<string> columnName = new Option<string>())
         {
             var prefix = Guid.NewGuid().ToString("N");
             foreach (var query in queries)
@@ -312,7 +266,7 @@ WHERE   referenced_entity_name = @referenced_entity_name");
                                 SqlDbType = SqlDbType.NVarChar,
                                 Size = -1,
                                 ParameterName = "@referenced_entity_name",
-                                Value = tableName
+                                Value = entityName
                             });
                             command.CommandText = builder.ToString();
                             result = command.ExecuteScalar();
