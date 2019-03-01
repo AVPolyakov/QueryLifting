@@ -108,7 +108,7 @@ WHERE 1 = 1");
             var param = new {
                 data.Text,
                 data.CreationDate
-            };
+            }.Params();
             const string table = "Post";
             if (!id.HasValue)
                 return await param.Apply(p =>
@@ -162,7 +162,7 @@ WHERE 1 = 1");
                 (builder, command) => builder.Append("CreationDate DESC, PostId"), p.offset, p.pageSize));
             foreach (var record in await paggingInfo.Data.Read())
                 Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
-            Console.WriteLine($"{paggingInfo.Count.Read()}");
+            Console.WriteLine($"{await paggingInfo.Count.Read()}");
         }
 
         private static async Task ParentChildExample(int maxChildId = 10)

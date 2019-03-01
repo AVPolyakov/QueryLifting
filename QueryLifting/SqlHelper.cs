@@ -330,6 +330,14 @@ namespace QueryLifting
             return command;
         }
 
+        private static void ParamsAddParams<T>(this SqlCommand command, Params<T> @params)
+        {
+            AddParams(command, @params.Value);
+        }
+
+        private static readonly MethodInfo paramsAddParamsMethod = GetMethodInfo<Action<SqlCommand, Params<object>>>(
+            (command, value) => command.ParamsAddParams(value)).GetGenericMethodDefinition();
+
         public static readonly Dictionary<Type, MethodInfo> AddParamsMethods = new[] {
             GetMethodInfo<Func<SqlCommand, string, int, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, int?, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
@@ -351,22 +359,34 @@ namespace QueryLifting
 
             static AddParamsCache()
             {
-                if (!typeof (T).IsAnonymousType()) throw new InvalidOperationException();
                 var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), null,
-                    new[] {typeof (SqlCommand), typeof(T)}, true);
+                    new[] { typeof(SqlCommand), typeof(T) }, true);
                 var ilGenerator = dynamicMethod.GetILGenerator();
-                foreach (var info in typeof (T).GetProperties())
+                if (typeof(T).GetGenericTypeDefinition() == typeof(Params<>))
                 {
                     ilGenerator.Emit(OpCodes.Ldarg_0);
-                    ilGenerator.Emit(OpCodes.Ldstr, "@" + info.Name);
                     ilGenerator.Emit(OpCodes.Ldarg_1);
-                    ilGenerator.EmitCall(OpCodes.Callvirt, info.GetGetMethod(), null);
-                    ilGenerator.EmitCall(OpCodes.Call, GetAddParamMethod(info.PropertyType), null);
-                    ilGenerator.Emit(OpCodes.Pop);
+                    ilGenerator.EmitCall(OpCodes.Call,
+                        paramsAddParamsMethod.MakeGenericMethod(typeof(T).GetGenericArguments()),
+                        null);
+                    ilGenerator.Emit(OpCodes.Ret);
                 }
-                ilGenerator.Emit(OpCodes.Ret);
+                else
+                {
+                    if (!typeof(T).IsAnonymousType()) throw new InvalidOperationException();
+                    foreach (var info in typeof(T).GetProperties())
+                    {
+                        ilGenerator.Emit(OpCodes.Ldarg_0);
+                        ilGenerator.Emit(OpCodes.Ldstr, "@" + info.Name);
+                        ilGenerator.Emit(OpCodes.Ldarg_1);
+                        ilGenerator.EmitCall(OpCodes.Callvirt, info.GetGetMethod(), null);
+                        ilGenerator.EmitCall(OpCodes.Call, GetAddParamMethod(info.PropertyType), null);
+                        ilGenerator.Emit(OpCodes.Pop);
+                    }
+                    ilGenerator.Emit(OpCodes.Ret);
+                }
                 Action = (Action<SqlCommand, T>)
-                    dynamicMethod.CreateDelegate(typeof (Action<SqlCommand, T>));
+                    dynamicMethod.CreateDelegate(typeof(Action<SqlCommand, T>));
             }
         }
 

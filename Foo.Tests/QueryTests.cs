@@ -118,7 +118,14 @@ namespace Foo.Tests
                 }
                 if (genericType == typeof (Param<>))
                 {
-                    var method = GetMethodInfo<Func<object, Param<object>>>(_ => CreateParam(_))
+                    var method = GetMethodInfo<Func<object, Param<object>>>(_ => _.Param())
+                        .GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
+                    var args = method.GetParameters().Select(parameter => TestValues(parameter).First()).ToArray();
+                    return new[] {method.Invoke(null, args)};
+                }
+                if (genericType == typeof (Params<>))
+                {
+                    var method = GetMethodInfo<Func<object, Params<object>>>(_ => _.Params())
                         .GetGenericMethodDefinition().MakeGenericMethod(type.GetGenericArguments());
                     var args = method.GetParameters().Select(parameter => TestValues(parameter).First()).ToArray();
                     return new[] {method.Invoke(null, args)};
@@ -145,8 +152,6 @@ namespace Foo.Tests
         private static Choice<T1, T2> Choice1<T1, T2>(T1 arg) => arg;
 
         private static Choice<T1, T2> Choice2<T1, T2>(T2 arg) => arg;
-
-        private static Param<T> CreateParam<T>(T value) => value.Param();
 
         private static Func<T> CreateFunc<T>(T arg) => () => arg;
 
