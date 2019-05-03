@@ -80,14 +80,19 @@ WHERE 1 = 1");
         {
             int id;
             {
-                id = await InsertOrUpdate(null, new PostData {Text = "Test", CreationDate = DateTime.Now});
+                id = await InsertOrUpdate(new Option<PostInfo>(), new PostData {Text = "Test"});
                 Console.WriteLine(id);
                 Assert.Equal("Test",
                     await new {id}.Apply(p => new SqlCommand("SELECT Text FROM Post WHERE PostId = @Id").AddParams(p)
                         .Query<string>()).Single());
             }
             {
-                await InsertOrUpdate(id, new PostData {Text = "Test2", CreationDate = DateTime.Now});
+                var postInfo = await new {PostId = id}.Apply(p => new SqlCommand(@"
+SELECT PostId, Text, CreationDate
+FROM Post
+WHERE PostId = @PostId").AddParams(p).Query<PostInfo>())
+                    .Single();
+                await InsertOrUpdate(postInfo, new PostData {Text = "Test2"});
                 Assert.Equal("Test2",
                     await new {id}.Apply(p => new SqlCommand("SELECT Text FROM Post WHERE PostId = @Id").AddParams(p)
                         .Query<string>()).Single());
@@ -103,21 +108,21 @@ WHERE 1 = 1");
             }
         }
 
-        private static async Task<int> InsertOrUpdate(int? id, PostData data)
+        private static async Task<int> InsertOrUpdate(Option<PostInfo> postInfo, PostData data)
         {
             var param = new {
                 data.Text,
-                data.CreationDate
+                CreationDate = postInfo.Select(_ => _.CreationDate).ValueOrDefault(DateTime.Now)
             }.Params();
             const string table = "Post";
-            if (!id.HasValue)
+            if (!postInfo.HasValue)
                 return await param.Apply(p =>
                     InsertQuery(table, default(int), p)).Single();
             else
             {
-                await new {PostId = id.Value, param}.Apply(p =>
+                await new {postInfo.Value.PostId, param}.Apply(p =>
                     UpdateQuery(table, new {p.PostId}, p.param)).Execute();
-                return id.Value;
+                return postInfo.Value.PostId;
             }
         }
 
@@ -309,6 +314,5 @@ END;").NonQuery().Execute().Wait();
     public class PostData
     {
         public string Text { get; set; }
-        public DateTime CreationDate { get; set; }
     }
 }
