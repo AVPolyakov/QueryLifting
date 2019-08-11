@@ -12,10 +12,12 @@ namespace Foo.Tests
     internal class QueryChecker : IQueryChecker
     {
         private readonly Action<QueryInfo> onQuery;
+        private readonly Action<Task> setTask;
 
-        public QueryChecker(Action<QueryInfo> onQuery)
+        public QueryChecker(Action<QueryInfo> onQuery, Action<Task> setTask)
         {
             this.onQuery = onQuery;
+            this.setTask = setTask;
         }
 
         public void Query<T>(Query<T> query)
@@ -29,7 +31,11 @@ namespace Foo.Tests
                     query.Command.Connection = connection;
                     connection.Open();
                     using (var reader = query.Command.ExecuteReader(CommandBehavior.SchemaOnly))
-                        query.ReaderFunc(reader).Wait();
+                    {
+                        var task = query.ReaderFunc(reader);
+                        async Task ToVoidTask() => await task;
+                        setTask(ToVoidTask());
+                    }
                 }
             }
             catch (Exception e)
@@ -37,6 +43,7 @@ namespace Foo.Tests
                 throw GetException(e, info);
             }
         }
+
 
         private static QueryCheckException GetException(Exception e, QueryInfo info)
         {

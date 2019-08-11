@@ -23,23 +23,26 @@ namespace Foo.Tests
         }
 
         [Fact]
-        public void TestQueries()
+        public async Task TestQueries()
         {
-            IterateQueries(delegate { });
+            await IterateQueries(delegate { });
         }
 
-        private void IterateQueries(Action<QueryInfo> onQuery)
+        private async Task IterateQueries(Action<QueryInfo> onQuery)
         {
-            UsingQueryChecker(new QueryChecker(onQuery), () => {
+            Task task = null;
+            SqlHelper.QueryChecker = new QueryChecker(onQuery, t => task = t);
+            try
+            {
                 foreach (var usage in new[] {typeof(Program)}.SelectMany(_ => _.Assembly.GetTypes()).ResolveUsages())
                 {
                     var methodInfo = usage.ResolvedMember as MethodInfo;
                     if (methodInfo != null &&
                         (methodInfo.IsGenericMethod && new[] {
-                             queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod,
-                             deleteQueryMethod, pagedQueriesMethod,
-                         }.Contains(methodInfo.GetGenericMethodDefinition()) ||
-                         methodInfo == nonQueryMethod))
+                                queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod,
+                                deleteQueryMethod, pagedQueriesMethod,
+                            }.Contains(methodInfo.GetGenericMethodDefinition()) ||
+                            methodInfo == nonQueryMethod))
                     {
                         var currentMethod = usage.CurrentMethod as MethodInfo;
                         if (currentMethod != null && currentMethod.IsGenericMethod && new[] {
@@ -49,22 +52,31 @@ namespace Foo.Tests
                         var invocation = usage.CurrentMethod.GetStaticInvocation();
                         if (!invocation.HasValue) throw new QueryCheckException("Method must be static");
                         foreach (var combination in usage.CurrentMethod.GetParameters().GetAllCombinations(TestValues))
+                        {
                             invocation.Value(combination.ToArray());
+                            await task;
+                        }
                     }
                 }
-                TestMethod(typeof(Program).GetMethod(nameof(ReadPosts)), parameterInfo => {
+                async Task TestMethod(MethodInfo methodInfo, Func<ParameterInfo, IEnumerable<object>> choiceFunc)
+                {
+                    foreach (var combination in methodInfo.GetParameters().GetAllCombinations(choiceFunc))
+                    {
+                        methodInfo.Invoke(null, combination.ToArray());
+                        await task;
+                    }
+                }
+                await TestMethod(typeof(Program).GetMethod(nameof(ReadPosts)), parameterInfo => {
                     if (parameterInfo.Name == "date") return new object[] {new DateTime?(), new DateTime(2001, 1, 1),};
                     throw new Exception();
                 });
-            });
+            }
+            finally
+            {
+                SqlHelper.QueryChecker = null;
+            }
         }
-
-        private static void TestMethod(MethodInfo methodInfo, Func<ParameterInfo, IEnumerable<object>> choiceFunc)
-        {
-            foreach (var combination in methodInfo.GetParameters().GetAllCombinations(choiceFunc))
-                methodInfo.Invoke(null, combination.ToArray());
-        }
-
+        
         private static IEnumerable<object> TestValues(ParameterInfo parameterInfo)
         {
             var type = parameterInfo.ParameterType;
@@ -171,25 +183,12 @@ namespace Foo.Tests
             (command, connectionString, line, filePath) => command.NonQuery(connectionString, line, filePath));
 
         private static readonly MethodInfo pagedQueriesMethod = typeof(FooSqlHelper).GetMethod(nameof(PagedQueries));
-
-        private static void UsingQueryChecker(IQueryChecker queryChecker, Action action)
-        {
-            SqlHelper.QueryChecker = queryChecker;
-            try
-            {
-                action();
-            }
-            finally
-            {
-                SqlHelper.QueryChecker = null;
-            }
-        }
-
+        
         [Fact]
-        public void FindUsagesTest()
+        public async Task FindUsagesTest()
         {
             var queries = new Dictionary<Tuple<string, int>, HashSet<Tuple<string, string>>>();
-            IterateQueries(queryInfo => {
+            await IterateQueries(queryInfo => {
                 if (queryInfo.Command.CommandType == CommandType.StoredProcedure) return;
                 {
                     {
@@ -351,12 +350,12 @@ IF EXISTS ( SELECT  *
         }
 
         [Fact]
-        public void FirstOnly_TestQueries()
+        public async Task FirstOnly_TestQueries()
         {
             EnumerableExtensions.FirstOnly = true;
             try
             {
-                IterateQueries(delegate { });
+                await IterateQueries(delegate { });
             }
             finally
             {
