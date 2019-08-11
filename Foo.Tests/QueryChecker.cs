@@ -147,6 +147,7 @@ Query result type:
             try
             {
                 using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, SqlHelper.ConnectionStringFunc)))
+                {
                     if (query.Command.CommandType == CommandType.StoredProcedure)
                     {
                         var command = new SqlCommand(query.Command.CommandText, connection) {CommandType = CommandType.StoredProcedure};
@@ -192,6 +193,8 @@ Query result type:
                         {
                         }
                     }
+                    setTask(Task.CompletedTask);
+                }
             }
             catch (Exception e)
             {

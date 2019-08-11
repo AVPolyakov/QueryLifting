@@ -19,14 +19,14 @@ namespace QueryLifting
             [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
             => new Query<T>(command, readerFunc, connectionString, line, filePath);
 
-        public static NonQuery NonQuery(this SqlCommand command, Option<string> connectionString = new Option<string>(),
-            [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
-            => new NonQuery(command, connectionString, line, filePath);
-
         public static Query<List<T>> Query<T>(this SqlCommand command, Option<string> connectionString = new Option<string>(),
             [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
             => command.Query(Read<T>, connectionString, line, filePath);
-
+        
+        public static NonQuery NonQuery(this SqlCommand command, Option<string> connectionString = new Option<string>(),
+            [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
+            => new NonQuery(command, connectionString, line, filePath);
+        
         public static Task<List<T>> Read<T>(this SqlDataReader reader) => Read(reader, reader.GetMaterializer<T>());
 
         public static Task<List<T>> Read<T>(this SqlDataReader reader, Func<T> materializer)
@@ -39,11 +39,7 @@ namespace QueryLifting
                 list.Add(materializer());
             return list;
         }
-
-        public static Func<string> ConnectionStringFunc = () => throw new Exception("Set the connection string func at application start.");
-
-        public static async Task<T> Single<T>(this Query<List<T>> query) => (await query.Read()).Single();
-
+        
         public static async Task<T> Read<T>(this Query<T> query)
         {
             using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, ConnectionStringFunc)))
@@ -55,6 +51,8 @@ namespace QueryLifting
             }
         }
 
+        public static async Task<T> Single<T>(this Query<List<T>> query) => (await query.Read()).Single();
+        
         public static async Task<int> Execute(this NonQuery query)
         {
             using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, ConnectionStringFunc)))
@@ -65,6 +63,10 @@ namespace QueryLifting
             }
         }
 
+        public static Func<string> ConnectionStringFunc = () => throw new Exception("Set the connection string func at application start.");
+        
+        public static IQueryChecker QueryChecker { get; set; }
+        
         public static int Int32(this SqlDataReader reader, int ordinal)
             => QueryChecker != null ? QueryChecker.Check<int>(reader, ordinal) : reader.GetInt32(ordinal);
 
@@ -231,9 +233,7 @@ namespace QueryLifting
         {
             T Materialize(SqlDataReader reader);
         }
-
-        public static IQueryChecker QueryChecker { get; set; }
-
+        
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, int? value)
             => value.HasValue
                 ? command.AddParam(parameterName, value.Value)
@@ -362,7 +362,7 @@ namespace QueryLifting
                 var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), null,
                     new[] { typeof(SqlCommand), typeof(T) }, true);
                 var ilGenerator = dynamicMethod.GetILGenerator();
-                if (typeof(T).GetGenericTypeDefinition() == typeof(Params<>))
+                if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(Params<>))
                 {
                     ilGenerator.Emit(OpCodes.Ldarg_0);
                     ilGenerator.Emit(OpCodes.Ldarg_1);

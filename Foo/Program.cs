@@ -155,7 +155,7 @@ WHERE 1 = 1");
         private static async Task Pagging(DateTime? date, int offset, int pageSize)
         {
             var paggingInfo = new {date, offset, pageSize}.Apply(p => PagedQueries<PostInfo>(
-                (builder, command) => {
+                query: (builder, command) => {
                     builder.Append(@"
 SELECT PostId, Text,  CreationDate
 FROM Post
@@ -164,7 +164,8 @@ WHERE 1 = 1");
                         builder.Append(command, @"
     AND CreationDate > @date", new {p.date});
                 },
-                (builder, command) => builder.Append("CreationDate DESC, PostId"), p.offset, p.pageSize));
+                orderBy: (builder, command) => builder.Append("CreationDate DESC, PostId"),
+                p.offset, p.pageSize));
             foreach (var record in await paggingInfo.Data.Read())
                 Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
             Console.WriteLine($"{await paggingInfo.Count.Read()}");

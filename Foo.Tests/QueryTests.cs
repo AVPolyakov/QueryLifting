@@ -191,25 +191,23 @@ namespace Foo.Tests
             await IterateQueries(queryInfo => {
                 if (queryInfo.Command.CommandType == CommandType.StoredProcedure) return;
                 {
+                    var line = queryInfo.Line;
+                    var file = queryInfo.FilePath;
+                    var key = Tuple.Create(file, line);
+                    if (!queries.TryGetValue(key, out var hashSet))
                     {
-                        var line = queryInfo.Line;
-                        var file = queryInfo.FilePath;
-                        var key = Tuple.Create(file, line);
-                        if (!queries.TryGetValue(key, out var hashSet))
-                        {
-                            hashSet = new HashSet<Tuple<string, string>>();
-                            queries.Add(key, hashSet);
-                        }
-                        var paramClause = string.Join(",", queryInfo.Command.Parameters.Cast<SqlParameter>()
-                            .Select(_ => $"{_.ParameterName} {GetSqlTypeString(_)}"));
-                        hashSet.Add(Tuple.Create($@"
+                        hashSet = new HashSet<Tuple<string, string>>();
+                        queries.Add(key, hashSet);
+                    }
+                    var paramClause = string.Join(",", queryInfo.Command.Parameters.Cast<SqlParameter>()
+                        .Select(_ => $"{_.ParameterName} {GetSqlTypeString(_)}"));
+                    hashSet.Add(Tuple.Create($@"
 {paramClause}
 AS 
     BEGIN
 {queryInfo.Command.CommandText}
     END",
-                            queryInfo.ConnectionString.Match(_ => _, ConnectionStringFunc)));
-                    }
+                        queryInfo.ConnectionString.Match(_ => _, ConnectionStringFunc)));
                 }
             });
 
