@@ -59,7 +59,7 @@ WHERE 1 = 1");
 
         private static async Task PostExample(DateTime? date)
         {
-            foreach (var record in await new {date}.Apply(p => {
+            var query = new {date}.Apply(p => {
                 var command = new SqlCommand();
                 var builder = new StringBuilder(@"
 SELECT PostId, Text,  CreationDate
@@ -70,7 +70,8 @@ WHERE 1 = 1");
     AND CreationDate > @date", new {p.date});
                 command.CommandText = builder.ToString();
                 return command.Query<PostInfo>();
-            }).Read())
+            });
+            foreach (var record in await query.Read())
             {
                 Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
             }
@@ -215,7 +216,7 @@ WHERE CreationDate > @date").AddParams(new {date = p.date()}).Query<PostInfo>())
 
         private static async Task ChoiceExample(Choice<string, DateTime> textOrDate)
         {
-            foreach (var record in await new {textOrDate}.Apply(p => {
+            var query = new {textOrDate}.Apply(p => {
                 var command = new SqlCommand();
                 var builder = new StringBuilder(@"
 SELECT PostId, Text,  CreationDate
@@ -227,7 +228,8 @@ WHERE 1 = 1");
     AND CreationDate > @date", new {date}));
                 command.CommandText = builder.ToString();
                 return command.Query<PostInfo>();
-            }).Read())
+            });
+            foreach (var record in await query.Read())
             {
                 Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
             }
@@ -235,7 +237,7 @@ WHERE 1 = 1");
 
         private static async Task ClusterExample(DateTime? startDate, DateTime? endDate)
         {
-            foreach (var record in await new {
+            var query = new {
                 startDate = startDate.Cluster(),
                 endDate = endDate.Cluster()
             }.Apply(p => {
@@ -252,7 +254,8 @@ WHERE 1 = 1");
     AND CreationDate <= @endDate", new {p.endDate});
                 command.CommandText = builder.ToString();
                 return command.Query<PostInfo>();
-            }).Read())
+            });
+            foreach (var record in await query.Read())
             {
                 Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
             }
