@@ -17,72 +17,43 @@ namespace Foo.Tests
 {
     public class QueryTests
     {
-        static QueryTests()
-        {
-            Init();
-        }
-
         [Fact]
         public async Task TestQueries()
         {
-            await IterateQueries(delegate { });
+            await IterateQueries(queryInfo => { });
         }
 
-        private async Task IterateQueries(Action<QueryInfo> onQuery)
+        [Fact]
+        public async Task FirstOnly_TestQueries()
         {
-            Task task = null;
-            SqlHelper.QueryChecker = new QueryChecker(onQuery, t => task = t);
+            EnumerableExtensions.FirstOnly = true;
             try
             {
-                foreach (var usage in new[] {typeof(Program)}.SelectMany(_ => _.Assembly.GetTypes()).ResolveUsages())
-                {
-                    var methodInfo = usage.ResolvedMember as MethodInfo;
-                    if (methodInfo != null &&
-                        (methodInfo.IsGenericMethod && new[]
-                            {
-                                queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod,
-                                deleteQueryMethod, pagedQueriesMethod,
-                            }.Contains(methodInfo.GetGenericMethodDefinition()) ||
-                            methodInfo == nonQueryMethod))
-                    {
-                        var currentMethod = usage.CurrentMethod as MethodInfo;
-                        if (currentMethod != null && currentMethod.IsGenericMethod && new[]
-                        {
-                            pagedQueriesMethod
-                        }.Contains(currentMethod.GetGenericMethodDefinition()))
-                            continue;
-                        var invocation = usage.CurrentMethod.GetStaticInvocation();
-                        if (!invocation.HasValue) throw new QueryCheckException("Method must be static");
-                        foreach (var combination in usage.CurrentMethod.GetParameters().GetAllCombinations(TestValues))
-                        {
-                            invocation.Value(combination.ToArray());
-                            await task;
-                        }
-                    }
-                }
-
-                async Task TestMethod(MethodInfo methodInfo, Func<ParameterInfo, IEnumerable<object>> choiceFunc)
-                {
-                    foreach (var combination in methodInfo.GetParameters().GetAllCombinations(choiceFunc))
-                    {
-                        methodInfo.Invoke(null, combination.ToArray());
-                        await task;
-                    }
-                }
-
-                await TestMethod(typeof(Program).GetMethod(nameof(ReadPosts)), parameterInfo =>
-                {
-                    if (parameterInfo.Name == "date") return new object[] {new DateTime?(), new DateTime(2001, 1, 1),};
-                    throw new Exception();
-                });
+                await IterateQueries(queryInfo => { });
             }
             finally
             {
-                SqlHelper.QueryChecker = null;
+                EnumerableExtensions.FirstOnly = false;
             }
         }
 
-        private static IEnumerable<object> TestValues(ParameterInfo parameterInfo)
+        [Fact]
+        public async Task FindUsagesTest()
+        {
+            var queries = new Dictionary<Tuple<string, int>, HashSet<Tuple<string, string>>>();
+            await IterateQueries(queryInfo => AddQuery(queryInfo, queries));
+            var entityName = "Post";
+            var columnName = "CreationDate";
+            var usages = string.Join(Environment.NewLine,
+                FindUsages(queries, entityName: entityName, columnName: columnName)
+                    .Select(_ => $"{_.Item1}:line {_.Item2}"));
+            var result = $@"Search result for EntityName: {entityName}, ColumnName: {columnName}
+{usages}
+---end search result---";
+            throw new Exception(result);
+        }
+        
+        public static IEnumerable<object> TestValues(ParameterInfo parameterInfo)
         {
             var type = parameterInfo.ParameterType;
             if (type == typeof(string)) return new[] {"test"};
@@ -164,6 +135,60 @@ namespace Foo.Tests
             throw new QueryCheckException($"Test value not found for parameter type `{parameterInfo.ParameterType}`");
         }
 
+        private async Task IterateQueries(Action<QueryInfo> onQuery)
+        {
+            Task task = null;
+            SqlHelper.QueryChecker = new QueryChecker(onQuery, t => task = t);
+            try
+            {
+                foreach (var usage in new[] {typeof(Program)}.SelectMany(_ => _.Assembly.GetTypes()).ResolveUsages())
+                {
+                    var methodInfo = usage.ResolvedMember as MethodInfo;
+                    if (methodInfo != null &&
+                        (methodInfo.IsGenericMethod && new[]
+                            {
+                                queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod,
+                                deleteQueryMethod, pagedQueriesMethod,
+                            }.Contains(methodInfo.GetGenericMethodDefinition()) ||
+                            methodInfo == nonQueryMethod))
+                    {
+                        var currentMethod = usage.CurrentMethod as MethodInfo;
+                        if (currentMethod != null && currentMethod.IsGenericMethod && new[]
+                        {
+                            pagedQueriesMethod
+                        }.Contains(currentMethod.GetGenericMethodDefinition()))
+                            continue;
+                        var invocation = usage.CurrentMethod.GetStaticInvocation();
+                        if (!invocation.HasValue) throw new QueryCheckException("Method must be static");
+                        foreach (var combination in usage.CurrentMethod.GetParameters().GetAllCombinations(TestValues))
+                        {
+                            invocation.Value(combination.ToArray());
+                            await task;
+                        }
+                    }
+                }
+
+                async Task TestMethod(MethodInfo methodInfo, Func<ParameterInfo, IEnumerable<object>> choiceFunc)
+                {
+                    foreach (var combination in methodInfo.GetParameters().GetAllCombinations(choiceFunc))
+                    {
+                        methodInfo.Invoke(null, combination.ToArray());
+                        await task;
+                    }
+                }
+
+                await TestMethod(typeof(Program).GetMethod(nameof(ReadPosts)), parameterInfo =>
+                {
+                    if (parameterInfo.Name == "date") return new object[] {new DateTime?(), new DateTime(2001, 1, 1),};
+                    throw new Exception();
+                });
+            }
+            finally
+            {
+                SqlHelper.QueryChecker = null;
+            }
+        }
+        
         private static T? CreateNullable<T>(T arg) where T : struct => arg;
 
         private static T? CreateNullable<T>() where T : struct => new T?();
@@ -194,46 +219,7 @@ namespace Foo.Tests
             (command, connectionString, line, filePath) => command.NonQuery(connectionString, line, filePath));
 
         private static readonly MethodInfo pagedQueriesMethod = typeof(FooSqlHelper).GetMethod(nameof(PagedQueries));
-
-        [Fact]
-        public async Task FindUsagesTest()
-        {
-            var queries = new Dictionary<Tuple<string, int>, HashSet<Tuple<string, string>>>();
-            await IterateQueries(queryInfo =>
-            {
-                if (queryInfo.Command.CommandType == CommandType.StoredProcedure) return;
-                {
-                    var line = queryInfo.Line;
-                    var file = queryInfo.FilePath;
-                    var key = Tuple.Create(file, line);
-                    if (!queries.TryGetValue(key, out var hashSet))
-                    {
-                        hashSet = new HashSet<Tuple<string, string>>();
-                        queries.Add(key, hashSet);
-                    }
-                    var paramClause = string.Join(",", queryInfo.Command.Parameters.Cast<SqlParameter>()
-                        .Select(_ => $"{_.ParameterName} {GetSqlTypeString(_)}"));
-                    hashSet.Add(Tuple.Create($@"
-{paramClause}
-AS 
-    BEGIN
-{queryInfo.Command.CommandText}
-    END",
-                        queryInfo.ConnectionString.Match(_ => _, ConnectionStringFunc)));
-                }
-            });
-
-            var entityName = "Post";
-            var columnName = "CreationDate";
-            var list = string.Join(Environment.NewLine,
-                FindUsages(queries, entityName: entityName, columnName: columnName)
-                    .Select(_ => $"{_.Item1}:line {_.Item2}"));
-            var result = $@"Search result for EntityName: {entityName}, ColumnName: {columnName}
-{list}
----end search result---";
-            throw new Exception(result);
-        }
-
+        
         private static IEnumerable<Tuple<string, int>> FindUsages(
             Dictionary<Tuple<string, int>, HashSet<Tuple<string, string>>> queries,
             string entityName, Option<string> columnName = new Option<string>())
@@ -337,45 +323,33 @@ IF EXISTS ( SELECT  *
 
         private const string QueryLiftingTemp = "QueryLiftingTemp";
 
-        [Fact]
-        public void GetAllCombinations()
+        private static void AddQuery(QueryInfo queryInfo, Dictionary<Tuple<string, int>, HashSet<Tuple<string, string>>> queries)
         {
+            if (queryInfo.Command.CommandType == CommandType.StoredProcedure) return;
             {
-                var parameterInfos = new
+                var line = queryInfo.Line;
+                var file = queryInfo.FilePath;
+                var key = Tuple.Create(file, line);
+                if (!queries.TryGetValue(key, out var hashSet))
                 {
-                    A1 = new DateTime?(),
-                    A2 = new DateTime?(),
-                    A3 = new DateTime?(),
-                    A4 = new DateTime?(),
-                    A5 = new DateTime?(),
-                }.GetType().GetConstructors().Single().GetParameters();
-                Assert.Equal(32, parameterInfos.GetAllCombinations(TestValues).Count());
-            }
-            {
-                var parameterInfos = new
-                {
-                    A1 = new DateTime?().Cluster(),
-                    A2 = new DateTime?().Cluster(),
-                    A3 = new DateTime?().Cluster(),
-                    A4 = new DateTime?().Cluster(),
-                    A5 = new DateTime?().Cluster(),
-                }.GetType().GetConstructors().Single().GetParameters();
-                Assert.Equal(10, parameterInfos.GetAllCombinations(TestValues).Count());
+                    hashSet = new HashSet<Tuple<string, string>>();
+                    queries.Add(key, hashSet);
+                }
+                var paramClause = string.Join(",", queryInfo.Command.Parameters.Cast<SqlParameter>()
+                    .Select(_ => $"{_.ParameterName} {GetSqlTypeString(_)}"));
+                hashSet.Add(Tuple.Create($@"
+{paramClause}
+AS 
+    BEGIN
+{queryInfo.Command.CommandText}
+    END",
+                    queryInfo.ConnectionString.Match(_ => _, ConnectionStringFunc)));
             }
         }
-
-        [Fact]
-        public async Task FirstOnly_TestQueries()
+        
+        static QueryTests()
         {
-            EnumerableExtensions.FirstOnly = true;
-            try
-            {
-                await IterateQueries(delegate { });
-            }
-            finally
-            {
-                EnumerableExtensions.FirstOnly = false;
-            }
+            Init();
         }
     }
 }

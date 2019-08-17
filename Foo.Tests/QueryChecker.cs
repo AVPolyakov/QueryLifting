@@ -43,18 +43,7 @@ namespace Foo.Tests
                 throw GetException(e, info);
             }
         }
-
-
-        private static QueryCheckException GetException(Exception e, QueryInfo info)
-        {
-            if (e is QueryCheckException checkException && checkException.QueryResultType.HasValue)
-                return new QueryCheckException($@"{e.Message}{(e.Message.EndsWith(".") ? "" : ".")} Information about query File and line: {info.FilePath}:line {info.Line}, Query text: {info.Command.CommandText},
-Query result type:
-{checkException.QueryResultType.Value}", e);
-            else
-                return new QueryCheckException($"{e.Message}{(e.Message.EndsWith(".") ? "" : ".")} Information about query File and line: {info.FilePath}:line {info.Line}, Query text: {info.Command.CommandText}", e);
-        }
-
+        
         public Task<List<T>> Read<T>(SqlDataReader reader, Func<T> materializer)
         {
             var ordinals = new HashSet<int>();
@@ -115,32 +104,6 @@ Query result type:
                     queryResultType: GetQueryResultType(reader));
             }
         }
-
-        private static bool TypesAreCompatible(Type dbType, Type type)
-        {
-            if (type.IsEnum && dbType == Enum.GetUnderlyingType(type)) return true;
-            return type == dbType;
-        }
-
-        private static string GetQueryResultType(SqlDataReader reader)
-        {
-            return string.Join(Environment.NewLine,
-                Enumerable.Range(0, reader.FieldCount).Select(i =>
-                {
-                    var type = AllowDBNull(reader, i) && reader.GetFieldType(i).IsValueType
-                        ? typeof(Nullable<>).MakeGenericType(reader.GetFieldType(i))
-                        : reader.GetFieldType(i);
-                    var typeName = type.GetCSharpName();
-                    return $"        public {typeName} {reader.GetName(i)} {{ get; set; }}";
-                }));
-        }
-
-        private static bool AllowDBNull(SqlDataReader reader, int ordinal)
-        {
-            return (bool) reader.GetSchemaTable().Rows[ordinal]["AllowDBNull"];
-        }
-
-        private readonly ConcurrentDictionary<SqlDataReader, HashSet<int>> ordinalDictionary = new ConcurrentDictionary<SqlDataReader, HashSet<int>>();
 
         public void NonQuery(NonQuery query)
         {
@@ -203,6 +166,42 @@ Query result type:
             {
                 throw GetException(e, info);
             }
+        }
+        
+        private static bool TypesAreCompatible(Type dbType, Type type)
+        {
+            if (type.IsEnum && dbType == Enum.GetUnderlyingType(type)) return true;
+            return type == dbType;
+        }
+
+        private static string GetQueryResultType(SqlDataReader reader)
+        {
+            return string.Join(Environment.NewLine,
+                Enumerable.Range(0, reader.FieldCount).Select(i =>
+                {
+                    var type = AllowDBNull(reader, i) && reader.GetFieldType(i).IsValueType
+                        ? typeof(Nullable<>).MakeGenericType(reader.GetFieldType(i))
+                        : reader.GetFieldType(i);
+                    var typeName = type.GetCSharpName();
+                    return $"        public {typeName} {reader.GetName(i)} {{ get; set; }}";
+                }));
+        }
+
+        private static bool AllowDBNull(SqlDataReader reader, int ordinal)
+        {
+            return (bool) reader.GetSchemaTable().Rows[ordinal]["AllowDBNull"];
+        }
+
+        private readonly ConcurrentDictionary<SqlDataReader, HashSet<int>> ordinalDictionary = new ConcurrentDictionary<SqlDataReader, HashSet<int>>();
+        
+        private static QueryCheckException GetException(Exception e, QueryInfo info)
+        {
+            if (e is QueryCheckException checkException && checkException.QueryResultType.HasValue)
+                return new QueryCheckException($@"{e.Message}{(e.Message.EndsWith(".") ? "" : ".")} Information about query File and line: {info.FilePath}:line {info.Line}, Query text: {info.Command.CommandText},
+Query result type:
+{checkException.QueryResultType.Value}", e);
+            else
+                return new QueryCheckException($"{e.Message}{(e.Message.EndsWith(".") ? "" : ".")} Information about query File and line: {info.FilePath}:line {info.Line}, Query text: {info.Command.CommandText}", e);
         }
     }
 
