@@ -21,7 +21,8 @@ ORDER BY
 {Text(orderBy, command)}
 OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY", new {offset, pageSize})).Query<TData>(line: line, filePath: filePath),
                 GetCommand((builder, command) => builder.Append($@"
-SELECT COUNT(*) FROM ({Text(query, command)}) T")).Query(async reader => {
+SELECT COUNT(*) FROM ({Text(query, command)}) T")).Query(async reader =>
+                {
                     var enumerable = (await reader.Read<int?>()).Select(_ => _.Value);
                     return QueryChecker == null ? enumerable.Single() : 0;
                 }, line: line, filePath: filePath));

@@ -65,7 +65,7 @@ Query result type:
             }
             finally
             {
-	            if (!ordinalDictionary.TryRemove(reader, out _)) throw new Exception();
+                if (!ordinalDictionary.TryRemove(reader, out _)) throw new Exception();
             }
             if (ordinals.Count != reader.FieldCount)
                 throw new QueryCheckException("Field count mismatch", queryResultType: GetQueryResultType(reader));
@@ -74,19 +74,21 @@ Query result type:
 
         public T Check<T>(SqlDataReader reader, int ordinal)
         {
-	        if (!ordinalDictionary.TryGetValue(reader, out var ordinals)) throw new Exception();
+            if (!ordinalDictionary.TryGetValue(reader, out var ordinals)) throw new Exception();
             ordinals.Add(ordinal);
-            var type = typeof (T);
+            var type = typeof(T);
+
             QueryCheckException GetInnerException() => new QueryCheckException($"Type mismatch for field '{reader.GetName(ordinal)}', type in query {reader.GetFieldType(ordinal)}, type in result {type}",
                 queryResultType: GetQueryResultType(reader));
+
             if (AllowDBNull(reader, ordinal))
             {
-	            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>) &&
-		            TypesAreCompatible(reader.GetFieldType(ordinal), type.GetGenericArguments().Single()))
-	            {
-		            //no-op
-	            }
-	            else if (type == typeof(string) && TypesAreCompatible(reader.GetFieldType(ordinal), type))
+                if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>) &&
+                    TypesAreCompatible(reader.GetFieldType(ordinal), type.GetGenericArguments().Single()))
+                {
+                    //no-op
+                }
+                else if (type == typeof(string) && TypesAreCompatible(reader.GetFieldType(ordinal), type))
                 {
                     //no-op
                 }
@@ -123,9 +125,10 @@ Query result type:
         private static string GetQueryResultType(SqlDataReader reader)
         {
             return string.Join(Environment.NewLine,
-                Enumerable.Range(0, reader.FieldCount).Select(i => {
-                    var type = AllowDBNull(reader, i) && reader.GetFieldType(i).IsValueType 
-                        ? typeof(Nullable<>).MakeGenericType(reader.GetFieldType(i)) 
+                Enumerable.Range(0, reader.FieldCount).Select(i =>
+                {
+                    var type = AllowDBNull(reader, i) && reader.GetFieldType(i).IsValueType
+                        ? typeof(Nullable<>).MakeGenericType(reader.GetFieldType(i))
                         : reader.GetFieldType(i);
                     var typeName = type.GetCSharpName();
                     return $"        public {typeName} {reader.GetName(i)} {{ get; set; }}";
@@ -134,7 +137,7 @@ Query result type:
 
         private static bool AllowDBNull(SqlDataReader reader, int ordinal)
         {
-            return (bool)reader.GetSchemaTable().Rows[ordinal]["AllowDBNull"];
+            return (bool) reader.GetSchemaTable().Rows[ordinal]["AllowDBNull"];
         }
 
         private readonly ConcurrentDictionary<SqlDataReader, HashSet<int>> ordinalDictionary = new ConcurrentDictionary<SqlDataReader, HashSet<int>>();

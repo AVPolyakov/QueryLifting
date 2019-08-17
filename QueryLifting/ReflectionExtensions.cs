@@ -60,7 +60,8 @@ namespace QueryLifting
             return friendlyName;
         }
 
-        private static readonly Dictionary<Type, string> _typeToFriendlyName = new Dictionary<Type, string> {
+        private static readonly Dictionary<Type, string> _typeToFriendlyName = new Dictionary<Type, string>
+        {
             {typeof(string), "string"},
             {typeof(object), "object"},
             {typeof(bool), "bool"},

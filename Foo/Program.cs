@@ -38,7 +38,8 @@ namespace Foo
 
         private static async Task DataReaderExample(DateTime? date)
         {
-            await new {date}.Apply(p => {
+            await new {date}.Apply(p =>
+            {
                 var command = new SqlCommand();
                 var builder = new StringBuilder(@"
 SELECT PostId, Text,  CreationDate
@@ -48,7 +49,8 @@ WHERE 1 = 1");
                     builder.Append(command, @"
     AND CreationDate > @date", new {p.date});
                 command.CommandText = builder.ToString();
-                return command.Query(reader => reader.Read(() => {
+                return command.Query(reader => reader.Read(() =>
+                {
                     Console.WriteLine("{0} {1} {2}", reader.Int32(reader.Ordinal("PostId")),
                         reader.String(reader.Ordinal("Text")),
                         reader.DateTime(reader.Ordinal("CreationDate")));
@@ -59,7 +61,8 @@ WHERE 1 = 1");
 
         private static async Task PostExample(DateTime? date)
         {
-            var query = new {date}.Apply(p => {
+            var query = new {date}.Apply(p =>
+            {
                 var command = new SqlCommand();
                 var builder = new StringBuilder(@"
 SELECT PostId, Text,  CreationDate
@@ -111,7 +114,8 @@ WHERE PostId = @PostId").AddParams(p).Query<PostInfo>())
 
         private static async Task<int> InsertOrUpdate(Option<PostInfo> postInfo, PostData data)
         {
-            var param = new {
+            var param = new
+            {
                 data.Text,
                 CreationDate = postInfo.Select(_ => _.CreationDate).ValueOrDefault(DateTime.Now)
             }.Params();
@@ -156,7 +160,8 @@ WHERE 1 = 1");
         private static async Task Pagging(DateTime? date, int offset, int pageSize)
         {
             var paggingInfo = new {date, offset, pageSize}.Apply(p => PagedQueries<PostInfo>(
-                query: (builder, command) => {
+                query: (builder, command) =>
+                {
                     builder.Append(@"
 SELECT PostId, Text,  CreationDate
 FROM Post
@@ -174,12 +179,14 @@ WHERE 1 = 1");
 
         private static async Task ParentChildExample(int maxChildId = 10)
         {
-            var queries = new {maxChildId}.Apply(p => {
+            var queries = new {maxChildId}.Apply(p =>
+            {
                 var child = QueryAction((builder, command) => builder.Append(command, @"
 SELECT *
 FROM Child
 WHERE ChildId <= @maxChildId", new {p.maxChildId}));
-                return new {
+                return new
+                {
                     child = GetCommand(child).Query<Child>(),
                     parent = GetCommand((builder, command) => builder.Append($@"
 SELECT *
@@ -216,7 +223,8 @@ WHERE CreationDate > @date").AddParams(new {date = p.date()}).Query<PostInfo>())
 
         private static async Task ChoiceExample(Choice<string, DateTime> textOrDate)
         {
-            var query = new {textOrDate}.Apply(p => {
+            var query = new {textOrDate}.Apply(p =>
+            {
                 var command = new SqlCommand();
                 var builder = new StringBuilder(@"
 SELECT PostId, Text,  CreationDate
@@ -237,10 +245,12 @@ WHERE 1 = 1");
 
         private static async Task ClusterExample(DateTime? startDate, DateTime? endDate)
         {
-            var query = new {
+            var query = new
+            {
                 startDate = startDate.Cluster(),
                 endDate = endDate.Cluster()
-            }.Apply(p => {
+            }.Apply(p =>
+            {
                 var command = new SqlCommand();
                 var builder = new StringBuilder(@"
 SELECT PostId, Text,  CreationDate

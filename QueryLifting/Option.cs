@@ -24,7 +24,7 @@ namespace QueryLifting
             get
             {
                 if (HasValue) return value;
-                throw new InvalidOperationException($"Optional value of '{typeof (T)}' type has no value.");
+                throw new InvalidOperationException($"Optional value of '{typeof(T)}' type has no value.");
             }
         }
 
@@ -47,16 +47,16 @@ namespace QueryLifting
 
         public static implicit operator Option<T>(T value) => new Option<T>(value);
 
-        public Option<TResult> Select<TResult>(Func<T, TResult> func) 
+        public Option<TResult> Select<TResult>(Func<T, TResult> func)
             => HasValue ? func(Value) : new Option<TResult>();
 
-        public Option<TResult> SelectMany<TResult>(Func<T, Option<TResult>> func) 
+        public Option<TResult> SelectMany<TResult>(Func<T, Option<TResult>> func)
             => HasValue ? func(Value) : new Option<TResult>();
 
         public Option<TResult> SelectMany<TOption, TResult>(Func<T, Option<TOption>> optionFunc, Func<T, TOption, TResult> resultFunc)
             => SelectMany(value1 => optionFunc(value1).Select(value2 => resultFunc(value1, value2)));
 
-        public Option<T> Where(Func<T, bool> predicate) 
+        public Option<T> Where(Func<T, bool> predicate)
             => HasValue ? (predicate(Value) ? this : new Option<T>()) : new Option<T>();
     }
 

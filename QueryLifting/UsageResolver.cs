@@ -109,8 +109,8 @@ namespace QueryLifting
             {
                 if (fieldInfo.FieldType == typeof(OpCode))
                 {
-                    var opCode = (OpCode)fieldInfo.GetValue(null);
-                    var value = unchecked((ushort)opCode.Value);
+                    var opCode = (OpCode) fieldInfo.GetValue(null);
+                    var value = unchecked((ushort) opCode.Value);
                     if (value < 0x100)
                     {
                         singleByteOpCodes[value] = opCode;
@@ -166,24 +166,24 @@ namespace QueryLifting
         }
 
         public const BindingFlags AllBindingFlags = BindingFlags.Default |
-                                                    BindingFlags.IgnoreCase |
-                                                    BindingFlags.DeclaredOnly |
-                                                    BindingFlags.Instance |
-                                                    BindingFlags.Static |
-                                                    BindingFlags.Public |
-                                                    BindingFlags.NonPublic |
-                                                    BindingFlags.FlattenHierarchy |
-                                                    BindingFlags.InvokeMethod |
-                                                    BindingFlags.CreateInstance |
-                                                    BindingFlags.GetField |
-                                                    BindingFlags.SetField |
-                                                    BindingFlags.GetProperty |
-                                                    BindingFlags.SetProperty |
-                                                    BindingFlags.PutDispProperty |
-                                                    BindingFlags.PutRefDispProperty |
-                                                    BindingFlags.ExactBinding |
-                                                    BindingFlags.SuppressChangeType |
-                                                    BindingFlags.OptionalParamBinding |
-                                                    BindingFlags.IgnoreReturn;
+            BindingFlags.IgnoreCase |
+            BindingFlags.DeclaredOnly |
+            BindingFlags.Instance |
+            BindingFlags.Static |
+            BindingFlags.Public |
+            BindingFlags.NonPublic |
+            BindingFlags.FlattenHierarchy |
+            BindingFlags.InvokeMethod |
+            BindingFlags.CreateInstance |
+            BindingFlags.GetField |
+            BindingFlags.SetField |
+            BindingFlags.GetProperty |
+            BindingFlags.SetProperty |
+            BindingFlags.PutDispProperty |
+            BindingFlags.PutRefDispProperty |
+            BindingFlags.ExactBinding |
+            BindingFlags.SuppressChangeType |
+            BindingFlags.OptionalParamBinding |
+            BindingFlags.IgnoreReturn;
     }
 }

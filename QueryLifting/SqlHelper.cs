@@ -22,11 +22,11 @@ namespace QueryLifting
         public static Query<List<T>> Query<T>(this SqlCommand command, Option<string> connectionString = new Option<string>(),
             [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
             => command.Query(Read<T>, connectionString, line, filePath);
-        
+
         public static NonQuery NonQuery(this SqlCommand command, Option<string> connectionString = new Option<string>(),
             [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
             => new NonQuery(command, connectionString, line, filePath);
-        
+
         public static Task<List<T>> Read<T>(this SqlDataReader reader) => Read(reader, reader.GetMaterializer<T>());
 
         public static Task<List<T>> Read<T>(this SqlDataReader reader, Func<T> materializer)
@@ -39,7 +39,7 @@ namespace QueryLifting
                 list.Add(materializer());
             return list;
         }
-        
+
         public static async Task<T> Read<T>(this Query<T> query)
         {
             using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, ConnectionStringFunc)))
@@ -52,7 +52,7 @@ namespace QueryLifting
         }
 
         public static async Task<T> Single<T>(this Query<List<T>> query) => (await query.Read()).Single();
-        
+
         public static async Task<int> Execute(this NonQuery query)
         {
             using (var connection = new SqlConnection(query.ConnectionString.Match(_ => _, ConnectionStringFunc)))
@@ -64,9 +64,9 @@ namespace QueryLifting
         }
 
         public static Func<string> ConnectionStringFunc = () => throw new Exception("Set the connection string func at application start.");
-        
+
         public static IQueryChecker QueryChecker { get; set; }
-        
+
         public static int Int32(this SqlDataReader reader, int ordinal)
             => QueryChecker != null ? QueryChecker.Check<int>(reader, ordinal) : reader.GetInt32(ordinal);
 
@@ -127,7 +127,8 @@ namespace QueryLifting
         /// </summary>
         public static Func<T> GetMaterializer<T>(this SqlDataReader reader) => Cache<T>.Func(reader);
 
-        public static readonly Dictionary<Type, MethodInfo> MethodInfos = new[] {
+        public static readonly Dictionary<Type, MethodInfo> MethodInfos = new[]
+        {
             GetMethodInfo<Func<SqlDataReader, int, int>>((reader, i) => reader.Int32(i)),
             GetMethodInfo<Func<SqlDataReader, int, int?>>((reader, i) => reader.NullableInt32(i)),
             GetMethodInfo<Func<SqlDataReader, int, long>>((reader, i) => reader.Int64(i)),
@@ -153,28 +154,28 @@ namespace QueryLifting
                 var readMethod = GetReadMethod(typeof(T));
                 if (readMethod.HasValue)
                 {
-                    var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), typeof (T),
-                        new[] {typeof (SqlDataReader)}, true);
+                    var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), typeof(T),
+                        new[] {typeof(SqlDataReader)}, true);
                     var ilGenerator = dynamicMethod.GetILGenerator();
                     ilGenerator.Emit(OpCodes.Ldarg_0);
                     ilGenerator.Emit(OpCodes.Ldc_I4_0);
                     ilGenerator.EmitCall(readMethod.Value.IsVirtual ? OpCodes.Callvirt : OpCodes.Call, readMethod.Value, null);
                     ilGenerator.Emit(OpCodes.Ret);
-                    var @delegate = (Func<SqlDataReader, T>) dynamicMethod.CreateDelegate(typeof (Func<SqlDataReader, T>));
+                    var @delegate = (Func<SqlDataReader, T>) dynamicMethod.CreateDelegate(typeof(Func<SqlDataReader, T>));
                     func = reader => () => @delegate(reader);
                 }
                 else
                 {
                     var typeBuilder = moduleBuilder.DefineType("T" + System.Guid.NewGuid().ToString("N"), TypeAttributes.NotPublic,
-                        null, new[] {typeof (IMaterializer<T>)});
-                    var list = typeof (T).GetProperties(BindingFlags.Instance | BindingFlags.Public)
-                        .Select(property => Tuple.Create(property, typeBuilder.DefineField(property.Name, typeof (int), FieldAttributes.Public))).ToList();
+                        null, new[] {typeof(IMaterializer<T>)});
+                    var list = typeof(T).GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                        .Select(property => Tuple.Create(property, typeBuilder.DefineField(property.Name, typeof(int), FieldAttributes.Public))).ToList();
                     var methodBuilder = typeBuilder.DefineMethod(nameof(IMaterializer<object>.Materialize),
                         MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.HideBySig | MethodAttributes.Final |
-                            MethodAttributes.NewSlot, typeof (T), new[] {typeof (SqlDataReader)});
+                        MethodAttributes.NewSlot, typeof(T), new[] {typeof(SqlDataReader)});
                     var generator = methodBuilder.GetILGenerator();
-                    generator.DeclareLocal(typeof (T));
-                    generator.Emit(OpCodes.Newobj, typeof (T).GetConstructor(new Type[] {}));
+                    generator.DeclareLocal(typeof(T));
+                    generator.Emit(OpCodes.Newobj, typeof(T).GetConstructor(new Type[] { }));
                     generator.Emit(OpCodes.Stloc_0);
                     foreach (var item in list)
                     {
@@ -191,11 +192,11 @@ namespace QueryLifting
                     generator.Emit(OpCodes.Ldloc_0);
                     generator.Emit(OpCodes.Ret);
                     var type = typeBuilder.CreateTypeInfo();
-                    var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), typeof (IMaterializer<T>),
-                        new[] {typeof (SqlDataReader)}, true);
+                    var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), typeof(IMaterializer<T>),
+                        new[] {typeof(SqlDataReader)}, true);
                     var ilGenerator = dynamicMethod.GetILGenerator();
                     ilGenerator.DeclareLocal(type);
-                    ilGenerator.Emit(OpCodes.Newobj, type.GetConstructor(new Type[] {}));
+                    ilGenerator.Emit(OpCodes.Newobj, type.GetConstructor(new Type[] { }));
                     ilGenerator.Emit(OpCodes.Stloc_0);
                     foreach (var fieldInfo in type.GetFields())
                     {
@@ -207,8 +208,9 @@ namespace QueryLifting
                     }
                     ilGenerator.Emit(OpCodes.Ldloc_0);
                     ilGenerator.Emit(OpCodes.Ret);
-                    var @delegate = (Func<SqlDataReader, IMaterializer<T>>) dynamicMethod.CreateDelegate(typeof (Func<SqlDataReader, IMaterializer<T>>));
-                    func = reader => {
+                    var @delegate = (Func<SqlDataReader, IMaterializer<T>>) dynamicMethod.CreateDelegate(typeof(Func<SqlDataReader, IMaterializer<T>>));
+                    func = reader =>
+                    {
                         var materializer = @delegate(reader);
                         return () => materializer.Materialize(reader);
                     };
@@ -233,7 +235,7 @@ namespace QueryLifting
         {
             T Materialize(SqlDataReader reader);
         }
-        
+
         public static SqlParameter AddParam(this SqlCommand command, string parameterName, int? value)
             => value.HasValue
                 ? command.AddParam(parameterName, value.Value)
@@ -311,16 +313,16 @@ namespace QueryLifting
 
             static ParamCache()
             {
-                var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), typeof (SqlParameter),
-                    new[] {typeof (SqlCommand), typeof (string), typeof (T)}, true);
+                var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), typeof(SqlParameter),
+                    new[] {typeof(SqlCommand), typeof(string), typeof(T)}, true);
                 var ilGenerator = dynamicMethod.GetILGenerator();
                 ilGenerator.Emit(OpCodes.Ldarg_0);
                 ilGenerator.Emit(OpCodes.Ldarg_1);
                 ilGenerator.Emit(OpCodes.Ldarg_2);
-                ilGenerator.EmitCall(OpCodes.Call, GetAddParamMethod(typeof (T)), null);
+                ilGenerator.EmitCall(OpCodes.Call, GetAddParamMethod(typeof(T)), null);
                 ilGenerator.Emit(OpCodes.Ret);
                 Func = (Func<SqlCommand, string, T, SqlParameter>)
-                    dynamicMethod.CreateDelegate(typeof (Func<SqlCommand, string, T, SqlParameter>));
+                    dynamicMethod.CreateDelegate(typeof(Func<SqlCommand, string, T, SqlParameter>));
             }
         }
 
@@ -338,7 +340,8 @@ namespace QueryLifting
         private static readonly MethodInfo paramsAddParamsMethod = GetMethodInfo<Action<SqlCommand, Params<object>>>(
             (command, value) => command.ParamsAddParams(value)).GetGenericMethodDefinition();
 
-        public static readonly Dictionary<Type, MethodInfo> AddParamsMethods = new[] {
+        public static readonly Dictionary<Type, MethodInfo> AddParamsMethods = new[]
+        {
             GetMethodInfo<Func<SqlCommand, string, int, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, int?, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
             GetMethodInfo<Func<SqlCommand, string, long, SqlParameter>>((command, name, value) => command.AddParam(name, value)),
@@ -360,7 +363,7 @@ namespace QueryLifting
             static AddParamsCache()
             {
                 var dynamicMethod = new DynamicMethod(System.Guid.NewGuid().ToString("N"), null,
-                    new[] { typeof(SqlCommand), typeof(T) }, true);
+                    new[] {typeof(SqlCommand), typeof(T)}, true);
                 var ilGenerator = dynamicMethod.GetILGenerator();
                 if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(Params<>))
                 {
@@ -427,13 +430,17 @@ namespace QueryLifting
             where T : struct, Enum
             => QueryChecker != null
                 ? QueryChecker.Check<T?>(reader, ordinal)
-                : reader.IsDBNull(ordinal) ? new T?() : IntToEnumCache<T>.Func(reader.GetInt32(ordinal));
+                : reader.IsDBNull(ordinal)
+                    ? new T?()
+                    : IntToEnumCache<T>.Func(reader.GetInt32(ordinal));
 
         public static T? NullableLongEnum<T>(this SqlDataReader reader, int ordinal)
             where T : struct, Enum
             => QueryChecker != null
                 ? QueryChecker.Check<T?>(reader, ordinal)
-                : reader.IsDBNull(ordinal) ? new T?() : LongToEnumCache<T>.Func(reader.GetInt64(ordinal));
+                : reader.IsDBNull(ordinal)
+                    ? new T?()
+                    : LongToEnumCache<T>.Func(reader.GetInt64(ordinal));
 
         private static readonly MethodInfo intEnum = GetMethodInfo<Func<SqlDataReader, int, BindingFlags>>(
             (reader, ordinal) => reader.IntEnum<BindingFlags>(ordinal)).GetGenericMethodDefinition();
@@ -455,9 +462,9 @@ namespace QueryLifting
 
         private static MethodInfo GetAddParamMethod(Type type)
         {
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Param<>))
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Param<>))
                 return paramMethod.MakeGenericMethod(type.GetGenericArguments());
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof (Cluster<>))
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Cluster<>))
                 return clusterParamMethod.MakeGenericMethod(type.GetGenericArguments());
             if (AddParamsMethods.TryGetValue(type, out var methodInfo))
                 return methodInfo;
@@ -588,10 +595,10 @@ namespace QueryLifting
             (command, name, value) => command.AddLongEnumParam(name, value)).GetGenericMethodDefinition();
 
         private static readonly MethodInfo paramMethod = GetMethodInfo<Func<SqlCommand, string, Param<object>, SqlParameter>>(
-                (command, name, value) => command.AddParam(name, value)).GetGenericMethodDefinition();
+            (command, name, value) => command.AddParam(name, value)).GetGenericMethodDefinition();
 
         private static readonly MethodInfo clusterParamMethod = GetMethodInfo<Func<SqlCommand, string, Cluster<object>, SqlParameter>>(
-                (command, name, value) => command.AddParam(name, value)).GetGenericMethodDefinition();
+            (command, name, value) => command.AddParam(name, value)).GetGenericMethodDefinition();
 
         public static StringBuilder Append<T>(this StringBuilder builder, SqlCommand command, string text, T param)
         {
@@ -600,7 +607,7 @@ namespace QueryLifting
             return builder;
         }
 
-        public static MethodInfo GetMethodInfo<T>(Expression<T> expression) 
+        public static MethodInfo GetMethodInfo<T>(Expression<T> expression)
             => ((MethodCallExpression) expression.Body).Method;
 
         public static bool IsAnonymousType(this Type type)
@@ -687,7 +694,7 @@ WHERE {whereClause}", p).ToString();
                         var schemaTable = reader.GetSchemaTable();
                         foreach (DataRow dataRow in schemaTable.Rows)
                             yield return new ColumnInfo(
-                                (string)dataRow["ColumnName"],
+                                (string) dataRow["ColumnName"],
                                 true.Equals(dataRow["IsKey"]),
                                 true.Equals(dataRow["IsAutoIncrement"]));
                     }
@@ -695,7 +702,7 @@ WHERE {whereClause}", p).ToString();
             }
         }
 
-        public static Action<StringBuilder, SqlCommand> QueryAction(Action<StringBuilder, SqlCommand> action) 
+        public static Action<StringBuilder, SqlCommand> QueryAction(Action<StringBuilder, SqlCommand> action)
             => action;
 
         public static SqlCommand GetCommand(Action<StringBuilder, SqlCommand> action)

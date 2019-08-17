@@ -14,7 +14,7 @@ namespace Foo
 
     public static class PaggingInfo
     {
-        public static PaggingInfo<TData, TCount> Create<TData, TCount>(TData data, TCount count) 
+        public static PaggingInfo<TData, TCount> Create<TData, TCount>(TData data, TCount count)
             => new PaggingInfo<TData, TCount>(data, count);
     }
 }
