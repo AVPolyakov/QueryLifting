@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using QueryLifting;
 
-namespace Foo.Tests
+namespace Examples.Tests
 {
     internal class QueryChecker : IQueryChecker
     {

@@ -7,9 +7,9 @@ using System.Text;
 using QueryLifting;
 using static QueryLifting.SqlHelper;
 
-namespace Foo
+namespace Examples
 {
-    public static class FooSqlHelper
+    public static class ExamplesSqlHelper
     {
         public static PaggingInfo<Query<List<TData>>, Query<int>> PagedQueries<TData>(
             Action<StringBuilder, SqlCommand> query, Action<StringBuilder, SqlCommand> orderBy, int offset, int pageSize,

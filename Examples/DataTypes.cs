@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Foo
+namespace Examples
 {
     public class Post
     {

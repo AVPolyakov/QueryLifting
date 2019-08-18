@@ -3,7 +3,7 @@ using System.Linq;
 using QueryLifting;
 using Xunit;
 
-namespace Foo.Tests
+namespace Examples.Tests
 {
     public class EnumerableExtensionsTests
     {
