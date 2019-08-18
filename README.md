@@ -10,3 +10,8 @@ The general test finds and calls all methods where a method of specified set is 
 In addition to validation of queries, the tests can be used to find 
 all references to database entities: tables, columns, etc. 
 ![Search result](Images/SearchResult.png?raw=true "Search result")  
+
+## Examples
+
+Examples can be found [here](Examples/Program.cs). 
+Query tests is located [here](Examples.Tests/QueryTests.cs).
