@@ -191,21 +191,6 @@ namespace Foo.Tests
                         }
                     }
                 }
-
-                async Task TestMethod(MethodInfo methodInfo, Func<ParameterInfo, IEnumerable<object>> choiceFunc)
-                {
-                    foreach (var combination in methodInfo.GetParameters().GetAllCombinations(choiceFunc))
-                    {
-                        methodInfo.Invoke(null, combination.ToArray());
-                        await task;
-                    }
-                }
-
-                await TestMethod(typeof(Program).GetMethod(nameof(PostQuery)), parameterInfo =>
-                {
-                    if (parameterInfo.Name == "date") return new object[] {new DateTime?(), new DateTime(2001, 1, 1),};
-                    throw new Exception();
-                });
             }
             finally
             {

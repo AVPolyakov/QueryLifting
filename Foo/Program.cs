@@ -24,7 +24,8 @@ namespace Foo
             if (DbUp() != 0) return;
 
             await PostExample(new DateTime(2015, 1, 1));
-            await NamedMethod(new DateTime(2015, 1, 1));
+            await AnonymousMethodExample(new DateTime(2015, 1, 1));
+            await DynamicQueryExample(new DateTime(2015, 1, 1));
             await InsertUpdateDelete();
             await Pagging(new DateTime(2015, 1, 1), 1, 1);
             await ParentChildExample();
@@ -36,6 +37,36 @@ namespace Foo
         }
         
         private static async Task PostExample(DateTime? date)
+        {
+            foreach (var record in await PostQuery(date).Read())
+            {
+                Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
+            }
+        }
+
+        private static Query<List<Post>> PostQuery(DateTime? date) =>
+            new SqlCommand(@"
+SELECT PostId, Text,  CreationDate
+FROM Post
+WHERE CreationDate > @date")
+                .AddParams(new {date})
+                .Query<Post>();
+
+        private static async Task AnonymousMethodExample(DateTime? date)
+        {
+            var query = new {date}.Apply(p => new SqlCommand(@"
+SELECT PostId, Text,  CreationDate
+FROM Post
+WHERE CreationDate > @date")
+                .AddParams(p)
+                .Query<Post>());
+            foreach (var record in await query.Read())
+            {
+                Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
+            }
+        }
+
+        private static async Task DynamicQueryExample(DateTime? date)
         {
             var query = new {date}.ApplyDynamic(p =>
             {
@@ -54,28 +85,6 @@ WHERE 1 = 1");
             {
                 Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
             }
-        }
-
-        private static async Task NamedMethod(DateTime? date)
-        {
-            foreach (var record in await PostQuery(date).Read())
-            {
-                Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
-            }
-        }
-
-        public static Query<List<Post>> PostQuery(DateTime? date)
-        {
-            var command = new SqlCommand();
-            var builder = new StringBuilder(@"
-SELECT PostId, Text,  CreationDate
-FROM Post
-WHERE 1 = 1");
-            if (date.HasValue)
-                builder.Append(command, @"
-    AND CreationDate > @date", new {date});
-            command.CommandText = builder.ToString();
-            return command.Query<Post>();
         }
         
         private static async Task InsertUpdateDelete()
