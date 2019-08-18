@@ -332,10 +332,7 @@ namespace QueryLifting
             return command;
         }
 
-        private static void ParamsAddParams<T>(this SqlCommand command, Params<T> @params)
-        {
-            AddParams(command, @params.Value);
-        }
+        private static void ParamsAddParams<T>(this SqlCommand command, Params<T> @params) => @params.AddParams(command);
 
         private static readonly MethodInfo paramsAddParamsMethod = GetMethodInfo<Action<SqlCommand, Params<object>>>(
             (command, value) => command.ParamsAddParams(value)).GetGenericMethodDefinition();

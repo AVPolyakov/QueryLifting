@@ -1,7 +1,7 @@
 # QueryLifting
 Query Lifting is a technique to test SQL queries that are expressed as simple strings.
 
-The test executes SQL queries in SchemaOnly mode. The test checks the match of names and types of query columns and the properties of data object. If there is no match then the test writes to console the code for correct data retrieving.
+The test executes SQL queries in SchemaOnly mode. The test checks the match of query columns and the properties of data object. If there is no match then the test writes to console the code for correct data retrieving.
 
 The general test finds and calls all methods where a method of specified set is invoked.
 

@@ -1,10 +1,14 @@
+using System.Data.SqlClient;
+
 namespace QueryLifting
 {
     public struct Params<T>
     {
-        internal T Value { get; }
+        private readonly T value;
 
-        public Params(T value) => Value = value;
+        public Params(T value) => this.value = value;
+
+        internal void AddParams(SqlCommand command) => command.AddParams(value);
     }
 
     public static class ParamsExtensions

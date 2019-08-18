@@ -201,7 +201,7 @@ namespace Foo.Tests
                     }
                 }
 
-                await TestMethod(typeof(Program).GetMethod(nameof(ReadPosts)), parameterInfo =>
+                await TestMethod(typeof(Program).GetMethod(nameof(PostQuery)), parameterInfo =>
                 {
                     if (parameterInfo.Name == "date") return new object[] {new DateTime?(), new DateTime(2001, 1, 1),};
                     throw new Exception();
