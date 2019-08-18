@@ -72,7 +72,7 @@ WHERE 1 = 1");
                     builder.Append(command, @"
     AND CreationDate > @date", new {p.date});
                 command.CommandText = builder.ToString();
-                return command.Query<PostInfo>();
+                return command.Query<Post>();
             });
             foreach (var record in await query.Read())
             {
@@ -84,26 +84,30 @@ WHERE 1 = 1");
         {
             int id;
             {
-                id = await InsertOrUpdate(new Option<PostInfo>(), new PostData {Text = "Test"});
+                var post = new Post
+                {
+                    CreationDate = DateTime.Now
+                };
+                FillPost(post, new PostData {Text = "Test"});
+                id = await post.Params().Apply(p => InsertQuery(default(int), p)).Single();
                 Console.WriteLine(id);
                 Assert.Equal("Test",
                     await new {id}.Apply(p => new SqlCommand("SELECT Text FROM Post WHERE PostId = @Id").AddParams(p)
                         .Query<string>()).Single());
             }
             {
-                var postInfo = await new {PostId = id}.Apply(p => new SqlCommand(@"
-SELECT PostId, Text, CreationDate
-FROM Post
-WHERE PostId = @PostId").AddParams(p).Query<PostInfo>())
+                var post = await new {PostId = id}.Apply(p =>
+                        GetByKeyQuery(default(Post), p))
                     .Single();
-                await InsertOrUpdate(postInfo, new PostData {Text = "Test2"});
+                FillPost(post, new PostData {Text = "Test2"});
+                await post.Params().Apply(p => UpdateQuery(p)).Execute();
                 Assert.Equal("Test2",
                     await new {id}.Apply(p => new SqlCommand("SELECT Text FROM Post WHERE PostId = @Id").AddParams(p)
                         .Query<string>()).Single());
             }
             {
-                var rowsNumber = await new {PostId = id}.Apply(p =>
-                    DeleteQuery("Post", p)).Execute();
+                var rowsNumber = await new {PostId = id}.Params().Apply(p =>
+                    DeleteByKeyQuery(typeof(Post), p)).Execute();
                 Assert.Equal(1, rowsNumber);
                 Console.WriteLine(rowsNumber);
                 Assert.Empty(
@@ -112,23 +116,9 @@ WHERE PostId = @PostId").AddParams(p).Query<PostInfo>())
             }
         }
 
-        private static async Task<int> InsertOrUpdate(Option<PostInfo> postInfo, PostData data)
+        private static void FillPost(Post post, PostData postData)
         {
-            var param = new
-            {
-                data.Text,
-                CreationDate = postInfo.Select(_ => _.CreationDate).ValueOrDefault(DateTime.Now)
-            }.Params();
-            const string table = "Post";
-            if (!postInfo.HasValue)
-                return await param.Apply(p =>
-                    InsertQuery(table, default(int), p)).Single();
-            else
-            {
-                await new {postInfo.Value.PostId, param}.Apply(p =>
-                    UpdateQuery(table, new {p.PostId}, p.param)).Execute();
-                return postInfo.Value.PostId;
-            }
+            post.Text = postData.Text;
         }
 
         private static async Task NamedMethod(DateTime? date)
@@ -137,7 +127,7 @@ WHERE PostId = @PostId").AddParams(p).Query<PostInfo>())
                 Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
         }
 
-        public static Query<List<PostInfo>> ReadPosts(DateTime? date)
+        public static Query<List<Post>> ReadPosts(DateTime? date)
         {
             var command = new SqlCommand();
             var builder = new StringBuilder(@"
@@ -148,7 +138,7 @@ WHERE 1 = 1");
                 builder.Append(command, @"
     AND CreationDate > @date", new {date});
             command.CommandText = builder.ToString();
-            return command.Query<PostInfo>();
+            return command.Query<Post>();
         }
 
         private static void ParamExample()
@@ -159,7 +149,7 @@ WHERE 1 = 1");
 
         private static async Task Pagging(DateTime? date, int offset, int pageSize)
         {
-            var paggingInfo = new {date, offset, pageSize}.Apply(p => PagedQueries<PostInfo>(
+            var paggingInfo = new {date, offset, pageSize}.Apply(p => PagedQueries<Post>(
                 query: (builder, command) =>
                 {
                     builder.Append(@"
@@ -215,7 +205,7 @@ WHERE ParentId IN (SELECT ParentId FROM ({Text(child, command)}) T)")).Query<Par
             foreach (var record in await new {date = Func.New(() => DateTime.Now)}.Apply(p => new SqlCommand(@"
 SELECT PostId, Text,  CreationDate
 FROM Post
-WHERE CreationDate > @date").AddParams(new {date = p.date()}).Query<PostInfo>()).Read())
+WHERE CreationDate > @date").AddParams(new {date = p.date()}).Query<Post>()).Read())
             {
                 Console.WriteLine($"{record.PostId} {record.Text} {record.CreationDate}");
             }
@@ -235,7 +225,7 @@ WHERE 1 = 1");
                     date => builder.Append(command, @"
     AND CreationDate > @date", new {date}));
                 command.CommandText = builder.ToString();
-                return command.Query<PostInfo>();
+                return command.Query<Post>();
             });
             foreach (var record in await query.Read())
             {
@@ -263,7 +253,7 @@ WHERE 1 = 1");
                     builder.Append(command, @"
     AND CreationDate <= @endDate", new {p.endDate});
                 command.CommandText = builder.ToString();
-                return command.Query<PostInfo>();
+                return command.Query<Post>();
             });
             foreach (var record in await query.Read())
             {

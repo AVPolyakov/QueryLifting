@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using QueryLifting;
 using Xunit;
+using Xunit.Abstractions;
 // ReSharper disable once RedundantUsingDirective
 using static Foo.FooSqlHelper;
 using static QueryLifting.SqlHelper;
@@ -17,6 +18,13 @@ namespace Foo.Tests
 {
     public class QueryTests
     {
+        private readonly ITestOutputHelper outputHelper;
+
+        public QueryTests(ITestOutputHelper outputHelper)
+        {
+            this.outputHelper = outputHelper;
+        }
+
         [Fact]
         public async Task TestQueries()
         {
@@ -50,12 +58,26 @@ namespace Foo.Tests
             var result = $@"Search result for EntityName: {entityName}, ColumnName: {columnName}
 {usages}
 ---end search result---";
-            throw new Exception(result);
+            outputHelper.WriteLine(result);
         }
-        
+
         public static IEnumerable<object> TestValues(ParameterInfo parameterInfo)
         {
-            var type = parameterInfo.ParameterType;
+            return TestValues(parameterInfo.ParameterType);
+        }
+
+        public static IEnumerable<object> TestValues(PropertyInfo propertyInfo)
+        {
+            return TestValues(propertyInfo.PropertyType);
+        }
+
+        private static readonly HashSet<Type> dataObjectTypes = new[]
+        {
+            typeof(Post),
+        }.ToHashSet();
+        
+        public static IEnumerable<object> TestValues(Type type)
+        {
             if (type == typeof(string)) return new[] {"test"};
             if (type == typeof(int)) return new object[] {0};
             if (type == typeof(decimal)) return new object[] {0m};
@@ -67,6 +89,8 @@ namespace Foo.Tests
                 return type.GetConstructors(UsageResolver.AllBindingFlags)
                     .SelectMany(constructorInfo => constructorInfo.GetParameters().GetAllCombinations(TestValues)
                         .Select(args => constructorInfo.Invoke(args.ToArray())));
+            if (dataObjectTypes.Contains(type))
+                return GetInstancesByProperties(type);
             if (type.IsGenericType)
             {
                 var genericType = type.GetGenericTypeDefinition();
@@ -132,9 +156,9 @@ namespace Foo.Tests
                         .Select(args => method.Invoke(null, args.ToArray()));
                 }
             }
-            throw new QueryCheckException($"Test value not found for parameter type `{parameterInfo.ParameterType}`");
+            throw new QueryCheckException($"Test value not found for parameter type `{type}`");
         }
-
+        
         private async Task IterateQueries(Action<QueryInfo> onQuery)
         {
             Task task = null;
@@ -148,7 +172,7 @@ namespace Foo.Tests
                         (methodInfo.IsGenericMethod && new[]
                             {
                                 queryMethod, queryMethod2, insertQueryMethod, updateQueryMethod,
-                                deleteQueryMethod, pagedQueriesMethod,
+                                deleteQueryMethod, pagedQueriesMethod, getQueryMethod
                             }.Contains(methodInfo.GetGenericMethodDefinition()) ||
                             methodInfo == nonQueryMethod))
                     {
@@ -189,6 +213,20 @@ namespace Foo.Tests
             }
         }
         
+        private static IEnumerable<object> GetInstancesByProperties(Type type)
+        {
+            return type.GetProperties()
+                .GetAllCombinations(propertyInfo => TestValues(propertyInfo)
+                    .Select(value => new {value, propertyInfo}))
+                .Select(propertyValues =>
+                {
+                    var instance = type.GetConstructor(new Type[] { }).Invoke(new object[] { });
+                    foreach (var propertyValue in propertyValues)
+                        propertyValue.propertyInfo.SetMethod.Invoke(instance, new[] {propertyValue.value});
+                    return instance;
+                });
+        }
+        
         private static T? CreateNullable<T>(T arg) where T : struct => arg;
 
         private static T? CreateNullable<T>() where T : struct => new T?();
@@ -213,7 +251,9 @@ namespace Foo.Tests
 
         private static readonly MethodInfo updateQueryMethod = typeof(SqlHelper).GetMethod(nameof(UpdateQuery));
 
-        private static readonly MethodInfo deleteQueryMethod = typeof(SqlHelper).GetMethod(nameof(DeleteQuery));
+        private static readonly MethodInfo deleteQueryMethod = typeof(SqlHelper).GetMethod(nameof(DeleteByKeyQuery));
+
+        private static readonly MethodInfo getQueryMethod = typeof(SqlHelper).GetMethod(nameof(GetByKeyQuery));
 
         private static readonly MethodInfo nonQueryMethod = GetMethodInfo<Action<SqlCommand, string, int, string>>(
             (command, connectionString, line, filePath) => command.NonQuery(connectionString, line, filePath));

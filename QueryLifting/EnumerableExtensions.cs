@@ -8,9 +8,24 @@ namespace QueryLifting
 {
     public static class EnumerableExtensions
     {
-        public static IEnumerable<IEnumerable<TResult>> GetAllCombinations<TResult>(this IEnumerable<ParameterInfo> items, Func<ParameterInfo, IEnumerable<TResult>> choiceFunc)
+        public static IEnumerable<IEnumerable<TResult>> GetAllCombinations<TResult>(
+            this IEnumerable<ParameterInfo> items, Func<ParameterInfo, IEnumerable<TResult>> choiceFunc)
         {
-            var clusterParameters = items.Where(IsCluster);
+            return GetAllCombinations(items, choiceFunc, IsCluster);
+        }
+
+        public static IEnumerable<IEnumerable<TResult>> GetAllCombinations<TResult>(
+            this IEnumerable<PropertyInfo> items, Func<PropertyInfo, IEnumerable<TResult>> choiceFunc)
+        {
+            return GetAllCombinations(items, choiceFunc, IsCluster);
+        }
+        
+        public static IEnumerable<IEnumerable<TResult>> GetAllCombinations<T, TResult>(
+            this IEnumerable<T> items,
+            Func<T, IEnumerable<TResult>> choiceFunc,
+            Func<T, bool> isCluster)
+        {
+            var clusterParameters = items.Where(isCluster);
             if (clusterParameters.Any())
             {
                 return clusterParameters.SelectMany(
@@ -19,7 +34,7 @@ namespace QueryLifting
                         parameterInfo =>
                         {
                             var enumerable = choiceFunc(parameterInfo);
-                            return parameterInfo.Equals(clusterParameter) || !IsCluster(parameterInfo)
+                            return parameterInfo.Equals(clusterParameter) || !isCluster(parameterInfo)
                                 ? enumerable
                                 : new[] {enumerable.First()};
                         })
@@ -40,6 +55,12 @@ namespace QueryLifting
         {
             return parameterInfo.GetCustomAttributes(typeof(ClusterAttribute), true).Length > 0 ||
                 parameterInfo.ParameterType.GetCustomAttributes(typeof(ClusterAttribute), true).Length > 0;
+        }
+
+        private static bool IsCluster(PropertyInfo propertyInfo)
+        {
+            return propertyInfo.GetCustomAttributes(typeof(ClusterAttribute), true).Length > 0 ||
+                propertyInfo.PropertyType.GetCustomAttributes(typeof(ClusterAttribute), true).Length > 0;
         }
 
         private static readonly AsyncLocal<bool> firstOnly = new AsyncLocal<bool>();

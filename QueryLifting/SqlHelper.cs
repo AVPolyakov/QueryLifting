@@ -376,7 +376,6 @@ namespace QueryLifting
                 }
                 else
                 {
-                    if (!typeof(T).IsAnonymousType()) throw new InvalidOperationException();
                     foreach (var info in typeof(T).GetProperties())
                     {
                         ilGenerator.Emit(OpCodes.Ldarg_0);
@@ -624,62 +623,108 @@ namespace QueryLifting
             }
         }
 
-        public static Query<List<TKey>> InsertQuery<T, TKey>(string table, TKey prototype, T p, Option<string> connectionString = new Option<string>(), [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
+        private static class TypePropertyCache<T>
+        {
+            public static readonly List<string> PropertyNames = 
+                GetTableType(typeof(T)).GetProperties().Select(_ => _.Name).ToList();
+        }
+        
+        public static Query<List<TKey>> InsertQuery<T, TKey>(TKey prototype, T p, Option<string> connectionString = new Option<string>(), [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
         {
             var command = new SqlCommand();
-            var columns = GetColumns(table, connectionString);
-            var columnsClause = string.Join(",", from _ in columns where !_.IsAutoIncrement select _.ColumnName);
-            var outClause = columns.Single(_ => _.IsKey).ColumnName;
-            var valuesClause = string.Join(",", from _ in columns where !_.IsAutoIncrement select $"@{_.ColumnName}");
+            var table = GetTableName(typeof(T));
+            var columnInfos = GetColumns(table, connectionString);
+            var propertyNames = TypePropertyCache<T>.PropertyNames;
+            var notAutoIncrementColumns = propertyNames
+                .Where(_ => !columnInfos.TryGetValue(_, out var info) || !info.IsAutoIncrement)
+                .ToList();
+            var columnsClause = string.Join(",", notAutoIncrementColumns);
+            var outClause = propertyNames.Single(_ => columnInfos.TryGetValue(_, out var info) && info.IsAutoIncrement);
+            var valuesClause = string.Join(",", notAutoIncrementColumns.Select(_ => $"@{_}"));
             command.CommandText = new StringBuilder().Append(command, $@"
 INSERT INTO {table} ({columnsClause}) 
 OUTPUT inserted.{outClause}
 VALUES ({valuesClause})", p).ToString();
             return command.Query<TKey>(line: line, filePath: filePath);
         }
-
-        public static NonQuery UpdateQuery<TKey, T>(string table, TKey key, T p, Option<string> connectionString = new Option<string>(),
+        
+        public static NonQuery UpdateQuery<T>(T p, Option<string> connectionString = new Option<string>(),
             [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
         {
             var command = new SqlCommand();
-            var columns = GetColumns(table, connectionString);
-            var setClause = string.Join(",", from _ in columns where !_.IsKey select $"{_.ColumnName}=@{_.ColumnName}");
-            var whereClause = string.Join(" AND ", from _ in columns where _.IsKey select $"{_.ColumnName}=@{_.ColumnName}");
-            command.CommandText = new StringBuilder().Append($@"
+            var table = GetTableName(typeof(T));
+            var columnInfos = GetColumns(table, connectionString);
+            var propertyNames = TypePropertyCache<T>.PropertyNames;
+            var setClause = string.Join(",",
+                propertyNames
+                    .Where(_ => !columnInfos.TryGetValue(_, out var info) || !info.IsKey)
+                    .Select(_ => $"{_}=@{_}"));
+            var whereClause = string.Join(" AND ", 
+                columnInfos.Values.Where(_ => _.IsKey).Select(_ => $"{_.ColumnName}=@{_.ColumnName}"));
+            command.CommandText = new StringBuilder().Append(command, $@"
 UPDATE {table}
 SET {setClause}
-WHERE {whereClause}").ToString();
-            command.AddParams(key);
-            command.AddParams(p);
+WHERE {whereClause}", p).ToString();
             return command.NonQuery(filePath: filePath, line: line);
         }
 
-        public static NonQuery DeleteQuery<T>(string table, T p, Option<string> connectionString = new Option<string>(),
+        public static NonQuery DeleteByKeyQuery<T>(Type table, T p, Option<string> connectionString = new Option<string>(),
             [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
         {
             var command = new SqlCommand();
-            var columns = GetColumns(table, connectionString);
-            var whereClause = string.Join(" AND ", from _ in columns where _.IsKey select $"{_.ColumnName}=@{_.ColumnName}");
+            var tableName = GetTableName(table);
+            var columnInfos = GetColumns(tableName, connectionString);
+            var whereClause = string.Join(" AND ", 
+                columnInfos.Values.Where(_ => _.IsKey).Select(_ => $"{_.ColumnName}=@{_.ColumnName}"));
             command.CommandText = new StringBuilder().Append(command, $@"
-DELETE FROM {table}
+DELETE FROM {tableName}
 WHERE {whereClause}", p).ToString();
             return command.NonQuery(line: line, filePath: filePath);
         }
 
-        private static List<ColumnInfo> GetColumns(string table, Option<string> connectionString)
+        public static Query<List<T>> GetByKeyQuery<T, TParam>(T prototype, TParam p, Option<string> connectionString = new Option<string>(),
+            [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
         {
-            List<ColumnInfo> value;
+            var command = new SqlCommand();
+            var tableName = GetTableName(typeof(T));
+            var columnInfos = GetColumns(tableName, connectionString);
+            var selectClause = string.Join(",", 
+                columnInfos.Values.Select(_ => _.ColumnName));
+            var whereClause = string.Join(" AND ", 
+                columnInfos.Values.Where(_ => _.IsKey).Select(_ => $"{_.ColumnName}=@{_.ColumnName}"));
+            command.CommandText = new StringBuilder().Append(command, $@"
+SELECT {selectClause}
+FROM {tableName}
+WHERE {whereClause}", p).ToString();
+            return command.Query<T>(line: line, filePath: filePath);
+        }
+
+        private static Dictionary<string, ColumnInfo> GetColumns(string table, Option<string> connectionString)
+        {
             //TODO: add connection string to key
-            if (!columnDictionary.TryGetValue(table, out value))
+            if (!columnDictionary.TryGetValue(table, out var value))
             {
-                value = GetColumnEnumerable(table, connectionString).ToList();
+                value = GetColumnEnumerable(table, connectionString).ToDictionary(_ => _.ColumnName);
                 columnDictionary[table] = value;
             }
             return value;
         }
 
-        private static readonly ConcurrentDictionary<string, List<ColumnInfo>> columnDictionary =
-            new ConcurrentDictionary<string, List<ColumnInfo>>();
+        private static readonly ConcurrentDictionary<string, Dictionary<string, ColumnInfo>> columnDictionary =
+            new ConcurrentDictionary<string, Dictionary<string, ColumnInfo>>();
+
+        private static string GetTableName(Type type)
+        {
+            return GetTableType(type).Name;
+        }
+
+        private static Type GetTableType(Type type)
+        {
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Params<>))
+                return type.GetGenericArguments().Single();
+            else
+                return type;
+        }
 
         private static IEnumerable<ColumnInfo> GetColumnEnumerable(string table, Option<string> connectionString)
         {

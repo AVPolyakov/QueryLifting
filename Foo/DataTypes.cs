@@ -2,7 +2,7 @@
 
 namespace Foo
 {
-    public class PostInfo
+    public class Post
     {
         public int PostId { get; set; }
         public string Text { get; set; }
