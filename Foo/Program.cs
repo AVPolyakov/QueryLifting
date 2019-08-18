@@ -38,7 +38,7 @@ namespace Foo
 
         private static async Task DataReaderExample(DateTime? date)
         {
-            await new {date}.Apply(p =>
+            await new {date}.ApplyDynamic(p =>
             {
                 var command = new SqlCommand();
                 var builder = new StringBuilder(@"
@@ -61,7 +61,7 @@ WHERE 1 = 1");
 
         private static async Task PostExample(DateTime? date)
         {
-            var query = new {date}.Apply(p =>
+            var query = new {date}.ApplyDynamic(p =>
             {
                 var command = new SqlCommand();
                 var builder = new StringBuilder(@"
@@ -89,7 +89,7 @@ WHERE 1 = 1");
                     CreationDate = DateTime.Now
                 };
                 FillPost(post, new PostData {Text = "Test"});
-                id = await post.Params().Apply(p => InsertQuery(default(int), p)).Single();
+                id = await post.Apply(p => InsertQuery(default(int), p)).Single();
                 Console.WriteLine(id);
                 Assert.Equal("Test",
                     await new {id}.Apply(p => new SqlCommand("SELECT Text FROM Post WHERE PostId = @Id").AddParams(p)
@@ -100,13 +100,13 @@ WHERE 1 = 1");
                         GetByKeyQuery(default(Post), p))
                     .Single();
                 FillPost(post, new PostData {Text = "Test2"});
-                await post.Params().Apply(p => UpdateQuery(p)).Execute();
+                await post.Apply(p => UpdateQuery(p)).Execute();
                 Assert.Equal("Test2",
                     await new {id}.Apply(p => new SqlCommand("SELECT Text FROM Post WHERE PostId = @Id").AddParams(p)
                         .Query<string>()).Single());
             }
             {
-                var rowsNumber = await new {PostId = id}.Params().Apply(p =>
+                var rowsNumber = await new {PostId = id}.Apply(p =>
                     DeleteByKeyQuery(typeof(Post), p)).Execute();
                 Assert.Equal(1, rowsNumber);
                 Console.WriteLine(rowsNumber);
@@ -149,7 +149,7 @@ WHERE 1 = 1");
 
         private static async Task Pagging(DateTime? date, int offset, int pageSize)
         {
-            var paggingInfo = new {date, offset, pageSize}.Apply(p => PagedQueries<Post>(
+            var paggingInfo = new {date, offset, pageSize}.ApplyDynamic(p => PagedQueries<Post>(
                 query: (builder, command) =>
                 {
                     builder.Append(@"
@@ -169,7 +169,7 @@ WHERE 1 = 1");
 
         private static async Task ParentChildExample(int maxChildId = 10)
         {
-            var queries = new {maxChildId}.Apply(p =>
+            var queries = new {maxChildId}.ApplyDynamic(p =>
             {
                 var child = QueryAction((builder, command) => builder.Append(command, @"
 SELECT *
@@ -202,7 +202,7 @@ WHERE ParentId IN (SELECT ParentId FROM ({Text(child, command)}) T)")).Query<Par
 
         private static async Task FuncExample()
         {
-            foreach (var record in await new {date = Func.New(() => DateTime.Now)}.Apply(p => new SqlCommand(@"
+            foreach (var record in await new {date = Func.New(() => DateTime.Now)}.ApplyDynamic(p => new SqlCommand(@"
 SELECT PostId, Text,  CreationDate
 FROM Post
 WHERE CreationDate > @date").AddParams(new {date = p.date()}).Query<Post>()).Read())
@@ -213,7 +213,7 @@ WHERE CreationDate > @date").AddParams(new {date = p.date()}).Query<Post>()).Rea
 
         private static async Task ChoiceExample(Choice<string, DateTime> textOrDate)
         {
-            var query = new {textOrDate}.Apply(p =>
+            var query = new {textOrDate}.ApplyDynamic(p =>
             {
                 var command = new SqlCommand();
                 var builder = new StringBuilder(@"
@@ -239,7 +239,7 @@ WHERE 1 = 1");
             {
                 startDate = startDate.Cluster(),
                 endDate = endDate.Cluster()
-            }.Apply(p =>
+            }.ApplyDynamic(p =>
             {
                 var command = new SqlCommand();
                 var builder = new StringBuilder(@"
