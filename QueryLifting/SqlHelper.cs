@@ -620,23 +620,17 @@ namespace QueryLifting
             }
         }
 
-        private static class TypePropertyCache<T>
-        {
-            public static readonly List<string> PropertyNames = 
-                GetTableType(typeof(T)).GetProperties().Select(_ => _.Name).ToList();
-        }
-        
         public static Query<List<TKey>> InsertQuery<T, TKey>(TKey prototype, T p, Option<string> connectionString = new Option<string>(), [CallerLineNumber] int line = 0, [CallerFilePath] string filePath = "")
         {
             var command = new SqlCommand();
             var table = GetTableName(typeof(T));
             var columnInfos = GetColumns(table, connectionString);
-            var propertyNames = TypePropertyCache<T>.PropertyNames;
-            var notAutoIncrementColumns = propertyNames
-                .Where(_ => !columnInfos.TryGetValue(_, out var info) || !info.IsAutoIncrement)
+            var notAutoIncrementColumns = columnInfos
+                .Where(_ => !_.IsAutoIncrement)
+                .Select(_ => _.ColumnName)
                 .ToList();
             var columnsClause = string.Join(",", notAutoIncrementColumns);
-            var outClause = propertyNames.Single(_ => columnInfos.TryGetValue(_, out var info) && info.IsAutoIncrement);
+            var outClause = columnInfos.Single(_ => _.IsAutoIncrement).ColumnName;
             var valuesClause = string.Join(",", notAutoIncrementColumns.Select(_ => $"@{_}"));
             command.CommandText = new StringBuilder().Append(command, $@"
 INSERT INTO {table} ({columnsClause}) 
@@ -651,13 +645,12 @@ VALUES ({valuesClause})", p).ToString();
             var command = new SqlCommand();
             var table = GetTableName(typeof(T));
             var columnInfos = GetColumns(table, connectionString);
-            var propertyNames = TypePropertyCache<T>.PropertyNames;
             var setClause = string.Join(",",
-                propertyNames
-                    .Where(_ => !columnInfos.TryGetValue(_, out var info) || !info.IsKey)
-                    .Select(_ => $"{_}=@{_}"));
+                columnInfos
+                    .Where(_ => !_.IsKey)
+                    .Select(_ => $"{_.ColumnName}=@{_.ColumnName}"));
             var whereClause = string.Join(" AND ", 
-                columnInfos.Values.Where(_ => _.IsKey).Select(_ => $"{_.ColumnName}=@{_.ColumnName}"));
+                columnInfos.Where(_ => _.IsKey).Select(_ => $"{_.ColumnName}=@{_.ColumnName}"));
             command.CommandText = new StringBuilder().Append(command, $@"
 UPDATE {table}
 SET {setClause}
@@ -672,7 +665,7 @@ WHERE {whereClause}", p).ToString();
             var tableName = GetTableName(table);
             var columnInfos = GetColumns(tableName, connectionString);
             var whereClause = string.Join(" AND ", 
-                columnInfos.Values.Where(_ => _.IsKey).Select(_ => $"{_.ColumnName}=@{_.ColumnName}"));
+                columnInfos.Where(_ => _.IsKey).Select(_ => $"{_.ColumnName}=@{_.ColumnName}"));
             command.CommandText = new StringBuilder().Append(command, $@"
 DELETE FROM {tableName}
 WHERE {whereClause}", p).ToString();
@@ -686,9 +679,9 @@ WHERE {whereClause}", p).ToString();
             var tableName = GetTableName(typeof(T));
             var columnInfos = GetColumns(tableName, connectionString);
             var selectClause = string.Join(",", 
-                columnInfos.Values.Select(_ => _.ColumnName));
+                columnInfos.Select(_ => _.ColumnName));
             var whereClause = string.Join(" AND ", 
-                columnInfos.Values.Where(_ => _.IsKey).Select(_ => $"{_.ColumnName}=@{_.ColumnName}"));
+                columnInfos.Where(_ => _.IsKey).Select(_ => $"{_.ColumnName}=@{_.ColumnName}"));
             command.CommandText = new StringBuilder().Append(command, $@"
 SELECT {selectClause}
 FROM {tableName}
@@ -696,19 +689,18 @@ WHERE {whereClause}", p).ToString();
             return command.Query<T>(line: line, filePath: filePath);
         }
 
-        private static Dictionary<string, ColumnInfo> GetColumns(string table, Option<string> connectionString)
+        private static List<ColumnInfo> GetColumns(string table, Option<string> connectionString)
         {
             //TODO: add connection string to key
             if (!columnDictionary.TryGetValue(table, out var value))
             {
-                value = GetColumnEnumerable(table, connectionString).ToDictionary(_ => _.ColumnName);
+                value = GetColumnEnumerable(table, connectionString).ToList();
                 columnDictionary[table] = value;
             }
             return value;
         }
 
-        private static readonly ConcurrentDictionary<string, Dictionary<string, ColumnInfo>> columnDictionary =
-            new ConcurrentDictionary<string, Dictionary<string, ColumnInfo>>();
+        private static readonly ConcurrentDictionary<string, List<ColumnInfo>> columnDictionary = new();
 
         private static string GetTableName(Type type)
         {
